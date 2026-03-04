@@ -12,6 +12,7 @@ Tools:
 """
 import asyncio
 import json
+from contextlib import asynccontextmanager
 from mcp.server import Server
 from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.types import (
@@ -386,9 +387,15 @@ def create_streamable_http_app(path: str = "/mcp") -> Starlette:
     normalized_path = path if path.startswith("/") else f"/{path}"
     session_manager = StreamableHTTPSessionManager(app=app)
     streamable_http_app = StreamableHTTPASGIApp(session_manager)
+
+    @asynccontextmanager
+    async def lifespan(_):
+        async with session_manager.run():
+            yield
+
     return Starlette(
         routes=[Route(normalized_path, endpoint=streamable_http_app)],
-        lifespan=lambda _: session_manager.run(),
+        lifespan=lifespan,
     )
 
 

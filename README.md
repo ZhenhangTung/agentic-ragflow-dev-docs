@@ -131,12 +131,12 @@ uv run python cli.py serve --host 127.0.0.1 --port 8000 --path /mcp
 
 在 Cursor Settings → MCP 中添加：
 
-先启动服务：
+First, start the server:
 ```bash
 uv run python cli.py serve --host 127.0.0.1 --port 8000 --path /mcp
 ```
 
-然后在 Cursor Settings → MCP 中添加：
+Then add in Cursor Settings → MCP:
 ```json
 {
   "mcpServers": {
