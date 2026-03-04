@@ -8,7 +8,7 @@
 ┌──────────────────────────────────────────────────────────────┐
 │                    MCP Client (Cursor / VS Code / Claude)    │
 └──────────────────────┬───────────────────────────────────────┘
-                       │ stdio (MCP Protocol)
+                       │ Streamable HTTP (MCP Protocol)
 ┌──────────────────────▼───────────────────────────────────────┐
 │                    MCP Server (mcp_server.py)                │
 │  Tools:                                                      │
@@ -32,7 +32,7 @@
 
 | 组件 | 技术选型 |
 |------|---------|
-| MCP Server | `mcp` Python SDK (stdio transport) |
+| MCP Server | `mcp` Python SDK (Streamable HTTP transport) |
 | 向量数据库 | PostgreSQL + pgvector (cosine similarity) |
 | 全文搜索 | PostgreSQL tsvector (加权 A/B/C) |
 | Embedding 模型 | 阿里云 DashScope `text-embedding-v4` (1024 维) |
@@ -122,7 +122,7 @@ uv run python cli.py ask "How do I upload documents to RAGFlow using Python SDK?
 ### 6. 启动 MCP Server
 
 ```bash
-uv run python cli.py serve
+uv run python cli.py serve --host 127.0.0.1 --port 8000 --path /mcp
 ```
 
 ## MCP 客户端配置
@@ -131,13 +131,17 @@ uv run python cli.py serve
 
 在 Cursor Settings → MCP 中添加：
 
+先启动服务：
+```bash
+uv run python cli.py serve --host 127.0.0.1 --port 8000 --path /mcp
+```
+
+然后在 Cursor Settings → MCP 中添加：
 ```json
 {
   "mcpServers": {
     "ragflow-docs": {
-      "command": "uv",
-      "args": ["run", "python", "cli.py", "serve"],
-      "cwd": "/path/to/agentic-ragflow-dev-docs"
+      "url": "http://127.0.0.1:8000/mcp"
     }
   }
 }
@@ -151,10 +155,7 @@ uv run python cli.py serve
 {
   "servers": {
     "ragflow-docs": {
-      "type": "stdio",
-      "command": "uv",
-      "args": ["run", "python", "cli.py", "serve"],
-      "cwd": "${workspaceFolder}"
+      "url": "http://127.0.0.1:8000/mcp"
     }
   }
 }
@@ -168,8 +169,7 @@ uv run python cli.py serve
 {
   "mcpServers": {
     "ragflow-docs": {
-      "command": "uv",
-      "args": ["run", "python", "/path/to/agentic-ragflow-dev-docs/cli.py", "serve"]
+      "url": "http://127.0.0.1:8000/mcp"
     }
   }
 }
