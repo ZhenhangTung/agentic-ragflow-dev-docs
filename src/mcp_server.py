@@ -12,12 +12,16 @@ Tools:
 """
 import asyncio
 import json
+from contextlib import asynccontextmanager
 from mcp.server import Server
-from mcp.server.stdio import stdio_server
+from mcp.server.streamable_http_manager import StreamableHTTPSessionManager
 from mcp.types import (
     Tool,
     TextContent,
 )
+from starlette.applications import Starlette
+from starlette.routing import Route
+import uvicorn
 
 from src.config import get_settings
 from src.db import Database
@@ -368,15 +372,49 @@ async def _handle_lookup_endpoint(retriever: Retriever, args: dict) -> list[Text
 
 # ── Server Entry Point ───────────────────────────────────────────────────
 
-async def run_server():
-    """Run the MCP server via stdio transport."""
-    async with stdio_server() as (read_stream, write_stream):
-        await app.run(read_stream, write_stream, app.create_initialization_options())
+class StreamableHTTPASGIApp:
+    """ASGI application wrapper for MCP Streamable HTTP session manager."""
+
+    def __init__(self, session_manager: StreamableHTTPSessionManager):
+        self.session_manager = session_manager
+
+    async def __call__(self, scope, receive, send) -> None:
+        await self.session_manager.handle_request(scope, receive, send)
 
 
-def main():
+def create_streamable_http_app(path: str = "/mcp") -> Starlette:
+    """Create a Starlette app that serves MCP over Streamable HTTP."""
+    normalized_path = path if path.startswith("/") else f"/{path}"
+    session_manager = StreamableHTTPSessionManager(app=app)
+    streamable_http_app = StreamableHTTPASGIApp(session_manager)
+
+    @asynccontextmanager
+    async def lifespan(_):
+        async with session_manager.run():
+            yield
+
+    return Starlette(
+        routes=[Route(normalized_path, endpoint=streamable_http_app)],
+        lifespan=lifespan,
+    )
+
+
+async def run_server(host: str = "127.0.0.1", port: int = 8000, path: str = "/mcp"):
+    """Run the MCP server via Streamable HTTP transport."""
+    server = uvicorn.Server(
+        uvicorn.Config(
+            create_streamable_http_app(path=path),
+            host=host,
+            port=port,
+            log_level="info",
+        )
+    )
+    await server.serve()
+
+
+def main(host: str = "127.0.0.1", port: int = 8000, path: str = "/mcp"):
     """Entry point for the MCP server."""
-    asyncio.run(run_server())
+    asyncio.run(run_server(host=host, port=port, path=path))
 
 
 if __name__ == "__main__":

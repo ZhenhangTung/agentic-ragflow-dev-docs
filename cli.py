@@ -42,17 +42,21 @@ def index(force_download: bool, force_reindex: bool):
 # ── serve ─────────────────────────────────────────────────────────────────
 
 @cli.command()
-def serve():
-    """Start the MCP server (stdio transport)."""
+@click.option("--host", default="127.0.0.1", show_default=True, help="Bind host for MCP HTTP server.")
+@click.option("--port", default=8000, show_default=True, help="Bind port for MCP HTTP server.")
+@click.option("--path", default="/mcp", show_default=True, help="HTTP path for MCP endpoint.")
+def serve(host: str, port: int, path: str):
+    """Start the MCP server (Streamable HTTP transport)."""
     from src.mcp_server import main as mcp_main
 
     console.print(Panel(
         "[bold green]Starting RAGFlow Docs MCP Server[/]\n"
-        "Transport: stdio\n"
+        "Transport: streamable-http\n"
+        f"Endpoint: http://{host}:{port}{path}\n"
         "Tools: search_ragflow_docs, ask_ragflow_docs, list_api_endpoints, lookup_api_endpoint",
         title="MCP Server",
     ))
-    mcp_main()
+    mcp_main(host=host, port=port, path=path)
 
 
 # ── search ────────────────────────────────────────────────────────────────
