@@ -1,8 +1,10 @@
 # RAGFlow Developer Docs MCP App
 
-一个受 [Stripe MCP](https://docs.stripe.com/mcp) 启发的 MCP（Model Context Protocol）应用，为 AI Agent 提供 RAGFlow 开发者文档的智能检索和问答能力。
+[中文版](./README_zh_CN.md)
 
-## 架构概述
+An MCP (Model Context Protocol) app inspired by [Stripe MCP](https://docs.stripe.com/mcp), providing AI Agents with intelligent retrieval and Q&A capabilities over RAGFlow developer documentation.
+
+## Architecture Overview
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -12,10 +14,10 @@
 ┌──────────────────────▼───────────────────────────────────────┐
 │                    MCP Server (mcp_server.py)                │
 │  Tools:                                                      │
-│    • search_ragflow_docs    — 混合检索文档                    │
-│    • ask_ragflow_docs       — RAG 问答                       │
-│    • list_api_endpoints     — 列出 API 端点                  │
-│    • lookup_api_endpoint    — 查询特定 API 端点              │
+│    • search_ragflow_docs    — hybrid document retrieval      │
+│    • ask_ragflow_docs       — RAG Q&A                        │
+│    • list_api_endpoints     — list API endpoints             │
+│    • lookup_api_endpoint    — look up a specific API endpoint│
 └──────────────────────┬───────────────────────────────────────┘
                        │
         ┌──────────────┼──────────────┐
@@ -28,62 +30,62 @@
    (pgvector + FTS)
 ```
 
-## 技术栈
+## Tech Stack
 
-| 组件 | 技术选型 |
-|------|---------|
+| Component | Technology |
+|-----------|-----------|
 | MCP Server | `mcp` Python SDK (Streamable HTTP transport) |
-| 向量数据库 | PostgreSQL + pgvector (cosine similarity) |
-| 全文搜索 | PostgreSQL tsvector (加权 A/B/C) |
-| Embedding 模型 | 阿里云 DashScope `text-embedding-v4` (1024 维) |
-| 生成模型 | 阿里云 DashScope `qwen3.5-plus` (Qwen3.5-Plus) |
-| 文档分块 | 自定义 Markdown 层级分块 (H2→H3→H4) |
-| 检索策略 | 向量 + 全文混合检索 (加权融合) |
+| Vector Database | PostgreSQL + pgvector (cosine similarity) |
+| Full-Text Search | PostgreSQL tsvector (weighted A/B/C) |
+| Embedding Model | Alibaba Cloud DashScope `text-embedding-v4` (1024-dim) |
+| Generation Model | Alibaba Cloud DashScope `qwen3.5-plus` (Qwen3.5-Plus) |
+| Document Chunking | Custom Markdown hierarchical chunking (H2→H3→H4) |
+| Retrieval Strategy | Vector + full-text hybrid retrieval (weighted fusion) |
 
-## 文档来源
+## Documentation Sources
 
-从 [infiniflow/ragflow-docs](https://github.com/infiniflow/ragflow-docs) 的 `website/docs/references/` 目录下载：
+Downloaded from the `website/docs/references/` directory of [infiniflow/ragflow-docs](https://github.com/infiniflow/ragflow-docs):
 
-- `http_api_reference.md` — HTTP API 完整参考
-- `python_api_reference.md` — Python SDK 完整参考
-- `glossary.mdx` — 术语表
+- `http_api_reference.md` — Complete HTTP API reference
+- `python_api_reference.md` — Complete Python SDK reference
+- `glossary.mdx` — Glossary
 
-## 快速开始
+## Quick Start
 
-### 1. 环境准备
+### 1. Environment Setup
 
 ```bash
-# 需要 uv (https://docs.astral.sh/uv/) 和 Python 3.11+
+# Requires uv (https://docs.astral.sh/uv/) and Python 3.11+
 uv venv .venv --python 3.11
 source .venv/bin/activate
 uv pip install -r requirements.txt
 ```
 
-### 2. PostgreSQL 设置
+### 2. PostgreSQL Setup
 
 ```bash
-# 安装 pgvector 扩展（如果尚未安装）
+# Install pgvector extension (if not already installed)
 # Ubuntu: sudo apt install postgresql-16-pgvector
 # macOS: brew install pgvector
 
-# 创建数据库
+# Create database
 createdb ragflow_docs
 
-# 启用 pgvector 扩展
+# Enable pgvector extension
 psql ragflow_docs -c "CREATE EXTENSION IF NOT EXISTS vector;"
 
-# 或者运行完整的 setup SQL
+# Or run the full setup SQL
 psql ragflow_docs -f setup_db.sql
 ```
 
-### 3. 配置
+### 3. Configuration
 
 ```bash
 cp .env.example .env
-# 编辑 .env，填入你的 DashScope API Key 和数据库连接信息
+# Edit .env and fill in your DashScope API Key and database connection info
 ```
 
-`.env` 示例：
+`.env` example:
 ```env
 DASHSCOPE_API_KEY=sk-your-dashscope-api-key
 POSTGRES_HOST=localhost
@@ -93,43 +95,41 @@ POSTGRES_PASSWORD=your_password
 POSTGRES_DB=ragflow_docs
 ```
 
-### 4. 索引文档
+### 4. Index Documents
 
 ```bash
-# 下载文档并建立索引
+# Download documents and build index
 uv run python cli.py index
 
-# 强制重新下载和索引
+# Force re-download and re-index
 uv run python cli.py index --force-download --force-reindex
 ```
 
-### 5. 测试
+### 5. Test
 
 ```bash
-# 查看索引状态
+# Check index status
 uv run python cli.py status
 
-# 搜索文档
+# Search documents
 uv run python cli.py search "how to create a dataset"
 
-# 交互式搜索
+# Interactive search
 uv run python cli.py search
 
-# RAG 问答
+# RAG Q&A
 uv run python cli.py ask "How do I upload documents to RAGFlow using Python SDK?"
 ```
 
-### 6. 启动 MCP Server
+### 6. Start MCP Server
 
 ```bash
 uv run python cli.py serve --host 127.0.0.1 --port 8000 --path /mcp
 ```
 
-## MCP 客户端配置
+## MCP Client Configuration
 
 ### Cursor
-
-在 Cursor Settings → MCP 中添加：
 
 First, start the server:
 ```bash
@@ -149,7 +149,7 @@ Then add in Cursor Settings → MCP:
 
 ### VS Code (GitHub Copilot)
 
-在 `.vscode/mcp.json` 中添加：
+Add to `.vscode/mcp.json`:
 
 ```json
 {
@@ -163,7 +163,7 @@ Then add in Cursor Settings → MCP:
 
 ### Claude Desktop
 
-在 `claude_desktop_config.json` 中添加：
+Add to `claude_desktop_config.json`:
 
 ```json
 {
@@ -179,94 +179,94 @@ Then add in Cursor Settings → MCP:
 
 ### search_ragflow_docs
 
-搜索 RAGFlow 文档，支持混合检索（向量 + 全文）。
+Search RAGFlow documentation with hybrid retrieval (vector + full-text).
 
-**参数：**
-- `query` (必需): 搜索查询
-- `top_k`: 返回结果数量 (默认 5)
-- `search_mode`: `hybrid` | `vector` | `fts` (默认 `hybrid`)
-- `doc_filter`: 限制搜索范围到特定文档
+**Parameters:**
+- `query` (required): Search query
+- `top_k`: Number of results to return (default 5)
+- `search_mode`: `hybrid` | `vector` | `fts` (default `hybrid`)
+- `doc_filter`: Restrict search to a specific document
 
-**示例：**
+**Example:**
 ```
 Search for "create dataset API endpoint"
 ```
 
 ### ask_ragflow_docs
 
-基于文档的 RAG 问答，返回 AI 生成的答案和引用来源。
+Document-grounded RAG Q&A — returns an AI-generated answer with cited sources.
 
-**参数：**
-- `question` (必需): 关于 RAGFlow 的问题
-- `top_k`: 上下文块数量 (默认 6)
+**Parameters:**
+- `question` (required): A question about RAGFlow
+- `top_k`: Number of context chunks (default 6)
 
-**示例：**
+**Example:**
 ```
 Ask "How do I configure a chat assistant with custom retrieval settings?"
 ```
 
 ### list_api_endpoints
 
-列出所有 RAGFlow API 端点，按类别分组。
+List all RAGFlow API endpoints grouped by category.
 
-**参数：**
-- `category` (可选): 过滤类别 (dataset, document, chunk, chat 等)
+**Parameters:**
+- `category` (optional): Filter by category (dataset, document, chunk, chat, etc.)
 
 ### lookup_api_endpoint
 
-查找特定 API 端点的详细文档。
+Look up detailed documentation for a specific API endpoint.
 
-**参数：**
-- `url_pattern` (必需): URL 匹配模式
-- `method` (可选): HTTP 方法 (GET/POST/PUT/DELETE)
+**Parameters:**
+- `url_pattern` (required): URL match pattern
+- `method` (optional): HTTP method (GET/POST/PUT/DELETE)
 
-## 项目结构
+## Project Structure
 
 ```
 agentic-ragflow-dev-docs/
-├── cli.py                  # CLI 入口 (index / serve / search / ask / status)
-├── pyproject.toml          # 项目元数据 & 依赖 (uv)
-├── requirements.txt        # Python 依赖 (兼容 pip)
-├── setup_db.sql            # 数据库初始化 SQL
-├── .env.example            # 环境变量模板
-├── docs/                   # 下载的文档 (自动创建)
+├── cli.py                  # CLI entry (index / serve / search / ask / status)
+├── pyproject.toml          # Project metadata & dependencies (uv)
+├── requirements.txt        # Python dependencies (pip-compatible)
+├── setup_db.sql            # Database initialization SQL
+├── .env.example            # Environment variable template
+├── docs/                   # Downloaded documents (auto-created)
 │   ├── http_api_reference.md
 │   ├── python_api_reference.md
 │   └── glossary.mdx
 └── src/
     ├── __init__.py
-    ├── config.py            # Pydantic Settings 配置
-    ├── downloader.py        # 从 GitHub 下载文档
-    ├── chunker.py           # 自定义 Markdown 分块策略
+    ├── config.py            # Pydantic Settings configuration
+    ├── downloader.py        # Download documents from GitHub
+    ├── chunker.py           # Custom Markdown chunking strategy
     ├── embedder.py          # Qwen text-embedding-v4
-    ├── db.py                # PostgreSQL + pgvector 数据层
-    ├── retriever.py         # 混合检索引擎
-    ├── generator.py         # Qwen3.5-Plus RAG 生成
-    ├── indexer.py           # 索引 Pipeline
-    └── mcp_server.py        # MCP 协议服务器
+    ├── db.py                # PostgreSQL + pgvector data layer
+    ├── retriever.py         # Hybrid retrieval engine
+    ├── generator.py         # Qwen3.5-Plus RAG generation
+    ├── indexer.py           # Indexing pipeline
+    └── mcp_server.py        # MCP protocol server
 ```
 
-## 分块策略
+## Chunking Strategy
 
-针对开发者 API 文档优化的分块方式：
+Chunking optimized for developer API documentation:
 
-1. **层级解析**: 按 Markdown 标题 (H2 → H3 → H4) 建立文档结构树
-2. **API 端点识别**: 自动提取 HTTP Method + URL 和 SDK 方法签名
-3. **智能分组**: 将 Request + Parameters 合并，Response 和 Examples 分开
-4. **代码块保护**: 代码块不会被截断
-5. **元数据增强**: 每个 chunk 包含 section_path、chunk_type、api_method 等结构化信息
+1. **Hierarchical parsing**: Build a document structure tree by Markdown headings (H2 → H3 → H4)
+2. **API endpoint detection**: Automatically extract HTTP Method + URL and SDK method signatures
+3. **Smart grouping**: Merge Request + Parameters together; separate Response and Examples
+4. **Code block protection**: Code blocks are never truncated
+5. **Metadata enrichment**: Each chunk includes structured metadata such as `section_path`, `chunk_type`, and `api_method`
 
-## 混合检索
+## Hybrid Retrieval
 
 ```
 Final Score = α × vector_score + β × fts_score
 
-默认权重: α = 0.6, β = 0.4
+Default weights: α = 0.6, β = 0.4
 ```
 
-- **向量检索**: 基于 cosine similarity 的语义搜索
-- **全文检索**: PostgreSQL tsvector 加权匹配 (API 标识符权重最高)
-- **结果融合**: FULL OUTER JOIN 合并两种检索结果
+- **Vector retrieval**: Semantic search based on cosine similarity
+- **Full-text retrieval**: PostgreSQL tsvector weighted matching (API identifiers ranked highest)
+- **Result fusion**: FULL OUTER JOIN merges results from both retrieval methods
 
 ## License
 
