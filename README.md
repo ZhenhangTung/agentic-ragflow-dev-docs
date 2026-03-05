@@ -52,6 +52,42 @@ Downloaded from the `website/docs/references/` directory of [infiniflow/ragflow-
 
 ## Quick Start
 
+### Docker (Recommended)
+
+The easiest way to get started is with Docker Compose, which sets up both the application and a PostgreSQL database with the pgvector extension automatically.
+
+```bash
+# 1. Copy and configure the environment file
+cp .env.example .env
+# Edit .env and set your DASHSCOPE_API_KEY
+
+# 2. Start services (PostgreSQL + MCP server)
+docker compose up -d
+
+# 3. Index the documentation
+docker compose exec app python cli.py index
+
+# 4. Verify everything is running
+docker compose exec app python cli.py status
+```
+
+The MCP server is then available at `http://localhost:8000/mcp`.
+
+To run other CLI commands inside the container:
+```bash
+docker compose exec app python cli.py search "how to create a dataset"
+docker compose exec app python cli.py ask "How do I upload documents using the Python SDK?"
+```
+
+To stop the services:
+```bash
+docker compose down
+```
+
+---
+
+### Manual Setup
+
 ### 1. Environment Setup
 
 ```bash
