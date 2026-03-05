@@ -1,7 +1,7 @@
 [project]
-name = "ragflow-dev-docs-mcp"
-version = "0.1.0"
-description = "MCP server for RAGFlow developer documentation — hybrid RAG with pgvector"
+name = "devdocs-rag"
+version = "0.2.0"
+description = "A Python RAG framework for Developer Docs QA and vibecoding — hybrid RAG with pgvector, agentic search, and MCP serving"
 requires-python = ">=3.11"
 dependencies = [
     "mcp[cli]>=1.0.0",
@@ -18,4 +18,4 @@ dependencies = [
 ]
 
 [project.scripts]
-ragflow-docs = "cli:cli"
+devdocs-rag = "cli:cli"

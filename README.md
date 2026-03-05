@@ -1,8 +1,10 @@
-# RAGFlow Developer Docs MCP App
+# DevDocs RAG Framework
+
+**A Python RAG framework for Developer Docs QA and vibecoding**
 
 [中文版](./README_zh_CN.md)
 
-An MCP (Model Context Protocol) app inspired by [Stripe MCP](https://docs.stripe.com/mcp), providing AI Agents with intelligent retrieval and Q&A capabilities over RAGFlow developer documentation.
+An MCP (Model Context Protocol) framework inspired by [Stripe MCP](https://docs.stripe.com/mcp), providing AI Agents with intelligent retrieval and Q&A capabilities over any developer documentation library. Configure for RAGFlow, LangChain, FastAPI, or any project by setting a few environment variables.
 
 ## Architecture Overview
 
@@ -13,12 +15,12 @@ An MCP (Model Context Protocol) app inspired by [Stripe MCP](https://docs.stripe
                        │ Streamable HTTP (MCP Protocol)
 ┌──────────────────────▼───────────────────────────────────────┐
 │                    MCP Server (mcp_server.py)                │
-│  Tools:                                                      │
-│    • search_ragflow_docs    — hybrid document retrieval      │
-│    • ask_ragflow_docs       — RAG Q&A                        │
+│  Tools (names derived from PROJECT_NAME):                    │
+│    • search_{slug}_docs     — hybrid document retrieval      │
+│    • ask_{slug}_docs        — RAG Q&A                        │
 │    • list_api_endpoints     — list API endpoints             │
 │    • lookup_api_endpoint    — look up a specific API endpoint│
-│    • agentic_search_ragflow_docs — multi-step agentic search │
+│    • agentic_search_{slug}_docs — multi-step agentic search  │
 └──────────────────────┬───────────────────────────────────────┘
                        │
         ┌──────────────┼──────────────┐
@@ -45,11 +47,13 @@ An MCP (Model Context Protocol) app inspired by [Stripe MCP](https://docs.stripe
 
 ## Documentation Sources
 
-Downloaded from the `website/docs/references/` directory of [infiniflow/ragflow-docs](https://github.com/infiniflow/ragflow-docs):
+By default, documentation is downloaded from the `website/docs/references/` directory of [infiniflow/ragflow-docs](https://github.com/infiniflow/ragflow-docs):
 
 - `http_api_reference.md` — Complete HTTP API reference
 - `python_api_reference.md` — Complete Python SDK reference
 - `glossary.mdx` — Glossary
+
+You can point the framework at any documentation library by setting `GITHUB_RAW_BASE` and `DOC_FILES` in your `.env` — see [Supporting Different Documentation Libraries](#supporting-different-documentation-libraries) below.
 
 ## Quick Start
 
@@ -124,6 +128,10 @@ cp .env.example .env
 
 `.env` example:
 ```env
+# Project identity (change these for a different documentation library)
+PROJECT_NAME=RAGFlow
+PROJECT_DESCRIPTION=RAGFlow API documentation (HTTP API and Python SDK references)
+
 DASHSCOPE_API_KEY=sk-your-dashscope-api-key
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
@@ -214,9 +222,12 @@ Add to `claude_desktop_config.json`:
 
 ## MCP Tools
 
-### search_ragflow_docs
+> **Note:** Tool names are generated dynamically based on `PROJECT_NAME`. The examples below use the default `PROJECT_NAME=RAGFlow`, which produces the slug `ragflow`. If you set `PROJECT_NAME=LangChain`, the tools become `search_langchain_docs`, `ask_langchain_docs`, etc.
 
-Search RAGFlow documentation with hybrid retrieval (vector + full-text).
+### search_{slug}_docs
+
+Search project documentation with hybrid retrieval (vector + full-text).
+*(Default: `search_ragflow_docs`)*
 
 **Parameters:**
 - `query` (required): Search query
@@ -229,12 +240,13 @@ Search RAGFlow documentation with hybrid retrieval (vector + full-text).
 Search for "create dataset API endpoint"
 ```
 
-### ask_ragflow_docs
+### ask_{slug}_docs
 
 Document-grounded RAG Q&A — returns an AI-generated answer with cited sources.
+*(Default: `ask_ragflow_docs`)*
 
 **Parameters:**
-- `question` (required): A question about RAGFlow
+- `question` (required): A question about the project
 - `top_k`: Number of context chunks (default 6)
 
 **Example:**
@@ -244,7 +256,7 @@ Ask "How do I configure a chat assistant with custom retrieval settings?"
 
 ### list_api_endpoints
 
-List all RAGFlow API endpoints grouped by category.
+List all API endpoints grouped by category.
 
 **Parameters:**
 - `category` (optional): Filter by category (dataset, document, chunk, chat, etc.)
@@ -257,12 +269,13 @@ Look up detailed documentation for a specific API endpoint.
 - `url_pattern` (required): URL match pattern
 - `method` (optional): HTTP method (GET/POST/PUT/DELETE)
 
-### agentic_search_ragflow_docs
+### agentic_search_{slug}_docs
 
-Perform an agentic search over RAGFlow developer documentation. Unlike simple search, this tool automatically decomposes complex questions into sub-queries, performs multiple rounds of retrieval, evaluates whether enough context has been gathered, and synthesizes a comprehensive answer. Best for complex, multi-faceted questions that span multiple API endpoints, SDK methods, or concepts.
+Perform an agentic search over the developer documentation. Unlike simple search, this tool automatically decomposes complex questions into sub-queries, performs multiple rounds of retrieval, evaluates whether enough context has been gathered, and synthesizes a comprehensive answer. Best for complex, multi-faceted questions that span multiple API endpoints, SDK methods, or concepts.
+*(Default: `agentic_search_ragflow_docs`)*
 
 **Parameters:**
-- `question` (required): A complex question about RAGFlow
+- `question` (required): A complex question about the project
 - `max_rounds`: Maximum number of search iterations (default 3)
 - `top_k_per_query`: Number of results per sub-query per round (default 5)
 
@@ -271,12 +284,45 @@ Perform an agentic search over RAGFlow developer documentation. Unlike simple se
 Agentic search "What is the full workflow for building a RAG pipeline — from creating a dataset, uploading documents, to setting up a chat assistant with retrieval?"
 ```
 
+## Supporting Different Documentation Libraries
+
+DevDocs RAG is framework-agnostic. To index a different project's documentation, set the following environment variables in your `.env`:
+
+### Example: LangChain
+
+```env
+PROJECT_NAME=LangChain
+PROJECT_DESCRIPTION=LangChain Python SDK reference and guides
+SDK_CLASS_NAMES=["ChatOpenAI","LLMChain","PromptTemplate","VectorStore","Runnable"]  # JSON array
+GITHUB_RAW_BASE=https://raw.githubusercontent.com/langchain-ai/langchain/master/docs
+DOC_FILES=["docs/api_reference.md"]
+POSTGRES_DB=langchain_docs
+```
+
+### Example: FastAPI
+
+```env
+PROJECT_NAME=FastAPI
+PROJECT_DESCRIPTION=FastAPI web framework reference documentation
+SDK_CLASS_NAMES=["FastAPI","APIRouter","Depends","HTTPException","Request","Response"]  # JSON array
+GITHUB_RAW_BASE=https://raw.githubusercontent.com/tiangolo/fastapi/master
+DOC_FILES=["docs/en/docs/reference/apirouter.md","docs/en/docs/reference/fastapi.md"]
+POSTGRES_DB=fastapi_docs
+```
+
+After changing these values, re-run the indexing step:
+```bash
+uv run python cli.py index --force-download --force-reindex
+```
+
+MCP tool names update automatically — for example, with `PROJECT_NAME=LangChain` the tools become `search_langchain_docs`, `ask_langchain_docs`, and `agentic_search_langchain_docs`.
+
 ## Project Structure
 
 ```
 agentic-ragflow-dev-docs/
 ├── cli.py                  # CLI entry (index / serve / search / ask / agentic-search / status)
-├── pyproject.toml          # Project metadata & dependencies (uv)
+├── pyproject.toml          # Project metadata & dependencies (package: devdocs-rag)
 ├── requirements.txt        # Python dependencies (pip-compatible)
 ├── setup_db.sql            # Database initialization SQL
 ├── .env.example            # Environment variable template
@@ -284,7 +330,7 @@ agentic-ragflow-dev-docs/
 │   ├── http_api_reference.md
 │   ├── python_api_reference.md
 │   └── glossary.mdx
-└── src/
+└── devdocs_rag/
     ├── __init__.py
     ├── config.py            # Pydantic Settings configuration
     ├── downloader.py        # Download documents from GitHub
@@ -294,6 +340,7 @@ agentic-ragflow-dev-docs/
     ├── retriever.py         # Hybrid retrieval engine
     ├── generator.py         # Qwen3.5-Plus RAG generation
     ├── agentic_search.py    # Multi-step agentic search engine
+    ├── metadata_enricher.py # Metadata enrichment for chunks
     ├── indexer.py           # Indexing pipeline
     └── mcp_server.py        # MCP protocol server
 ```

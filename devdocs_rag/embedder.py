@@ -1,9 +1,9 @@
 """
-Embedding service using Alibaba Cloud DashScope text-embedding-v4.
+DevDocs RAG Framework - Embedding service using OpenAI-compatible API.
 """
 from openai import AsyncOpenAI, BadRequestError
 from openai.types import CreateEmbeddingResponse
-from src.config import get_settings
+from devdocs_rag.config import get_settings
 
 
 class Embedder:

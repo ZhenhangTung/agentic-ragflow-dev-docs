@@ -1,10 +1,10 @@
 """
-Download RAGFlow reference documentation from GitHub.
+DevDocs RAG Framework - Download documentation from GitHub.
 """
 import os
 import httpx
 from rich.console import Console
-from src.config import get_settings
+from devdocs_rag.config import get_settings
 
 console = Console()
 

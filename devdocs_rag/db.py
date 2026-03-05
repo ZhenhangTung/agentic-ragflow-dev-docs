@@ -1,11 +1,11 @@
 """
-PostgreSQL database layer with pgvector for vector search
-and tsvector for full-text search.
+DevDocs RAG Framework - PostgreSQL database layer with pgvector
+for vector search and tsvector for full-text search.
 """
 import json
 import asyncpg
 from pgvector.asyncpg import register_vector
-from src.config import get_settings
+from devdocs_rag.config import get_settings
 
 
 # ── SQL Statements ───────────────────────────────────────────────────────

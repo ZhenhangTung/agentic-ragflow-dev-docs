@@ -1,15 +1,16 @@
 """
-RAGFlow Developer Docs MCP Server
+DevDocs RAG Framework - MCP Server
 
-Provides tools for AI agents to search and query RAGFlow documentation,
+Provides tools for AI agents to search and query developer documentation,
 inspired by Stripe's MCP approach (https://docs.stripe.com/mcp).
 
-Tools:
-- search_ragflow_docs: Search RAGFlow API documentation with hybrid retrieval
-- ask_ragflow_docs: Ask questions about RAGFlow and get AI-generated answers
-- list_api_endpoints: List all available API endpoints
-- lookup_api_endpoint: Look up a specific API endpoint by URL pattern
-- agentic_search_ragflow_docs: Multi-step agentic search with query decomposition
+Tool names are dynamically generated based on the configured PROJECT_NAME.
+For example, with PROJECT_NAME=RAGFlow:
+- search_ragflow_docs
+- ask_ragflow_docs
+- list_api_endpoints
+- lookup_api_endpoint
+- agentic_search_ragflow_docs
 """
 import asyncio
 import json
@@ -24,16 +25,19 @@ from starlette.applications import Starlette
 from starlette.routing import Route
 import uvicorn
 
-from src.config import get_settings
-from src.db import Database
-from src.embedder import Embedder
-from src.retriever import Retriever
-from src.generator import Generator
-from src.agentic_search import AgenticSearch
+from devdocs_rag.config import get_settings
+from devdocs_rag.db import Database
+from devdocs_rag.embedder import Embedder
+from devdocs_rag.retriever import Retriever
+from devdocs_rag.generator import Generator
+from devdocs_rag.agentic_search import AgenticSearch
 
 # ── MCP Server Setup ─────────────────────────────────────────────────────
 
-app = Server("ragflow-docs")
+_settings = get_settings()
+_project_slug = _settings.project_slug  # e.g. "ragflow"
+
+app = Server(f"{_project_slug}-docs")
 
 # Lazy-initialized global components
 _db: Database | None = None
@@ -56,15 +60,25 @@ async def _get_components():
     return _db, _embedder, _retriever, _generator, _agentic_search
 
 
+# ── Dynamic Tool Names ────────────────────────────────────────────────────
+
+TOOL_SEARCH = f"search_{_project_slug}_docs"
+TOOL_ASK = f"ask_{_project_slug}_docs"
+TOOL_LIST_ENDPOINTS = "list_api_endpoints"
+TOOL_LOOKUP_ENDPOINT = "lookup_api_endpoint"
+TOOL_AGENTIC_SEARCH = f"agentic_search_{_project_slug}_docs"
+
 # ── Tool Definitions ─────────────────────────────────────────────────────
 
 @app.list_tools()
 async def list_tools() -> list[Tool]:
+    project = _settings.project_name
+    desc = _settings.project_description
     return [
         Tool(
-            name="search_ragflow_docs",
+            name=TOOL_SEARCH,
             description=(
-                "Search the RAGFlow developer documentation (HTTP API and Python SDK references). "
+                f"Search the {project} developer documentation ({desc}). "
                 "Use this to find specific API endpoints, SDK methods, parameter details, "
                 "request/response formats, and code examples. "
                 "Supports hybrid search combining semantic understanding and keyword matching."
@@ -76,7 +90,7 @@ async def list_tools() -> list[Tool]:
                         "type": "string",
                         "description": (
                             "The search query. Can be natural language (e.g., 'how to create a dataset') "
-                            "or specific terms (e.g., 'POST /api/v1/datasets', 'RAGFlow.create_dataset')."
+                            "or specific terms (e.g., 'POST /api/v1/datasets')."
                         ),
                     },
                     "top_k": {
@@ -96,13 +110,7 @@ async def list_tools() -> list[Tool]:
                     },
                     "doc_filter": {
                         "type": "string",
-                        "enum": [
-                            "all",
-                            "http_api_reference.md",
-                            "python_api_reference.md",
-                            "glossary.mdx",
-                        ],
-                        "description": "Filter by documentation source. Default: 'all'.",
+                        "description": "Filter by documentation source file name. Default: 'all'.",
                         "default": "all",
                     },
                 },
@@ -110,9 +118,9 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
-            name="ask_ragflow_docs",
+            name=TOOL_ASK,
             description=(
-                "Ask a question about RAGFlow and get an AI-generated answer based on the official "
+                f"Ask a question about {project} and get an AI-generated answer based on the official "
                 "documentation. The answer includes relevant code examples and references. "
                 "Use this for complex questions that need synthesized answers from multiple doc sections."
             ),
@@ -122,10 +130,9 @@ async def list_tools() -> list[Tool]:
                     "question": {
                         "type": "string",
                         "description": (
-                            "The question about RAGFlow. Examples: "
-                            "'How do I upload documents to a dataset using the Python SDK?', "
-                            "'What parameters does the retrieval API accept?', "
-                            "'How to create a chat assistant with custom LLM settings?'"
+                            f"The question about {project}. Examples: "
+                            "'How do I upload documents using the Python SDK?', "
+                            "'What parameters does the retrieval API accept?'"
                         ),
                     },
                     "top_k": {
@@ -138,9 +145,9 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
-            name="list_api_endpoints",
+            name=TOOL_LIST_ENDPOINTS,
             description=(
-                "List all available RAGFlow API endpoints grouped by category. "
+                f"List all available {project} API endpoints grouped by category. "
                 "Returns a structured overview of the HTTP API including methods, URLs, and descriptions."
             ),
             inputSchema={
@@ -150,7 +157,7 @@ async def list_tools() -> list[Tool]:
                         "type": "string",
                         "description": (
                             "Optional category filter. Examples: 'dataset', 'document', 'chunk', "
-                            "'chat', 'agent', 'session', 'memory', 'file'. "
+                            "'chat', 'agent', 'session'. "
                             "Leave empty to list all."
                         ),
                     },
@@ -158,9 +165,9 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
-            name="lookup_api_endpoint",
+            name=TOOL_LOOKUP_ENDPOINT,
             description=(
-                "Look up detailed documentation for a specific RAGFlow API endpoint. "
+                f"Look up detailed documentation for a specific {project} API endpoint. "
                 "Provide the HTTP method and URL pattern to get full details including "
                 "parameters, request examples, and response formats."
             ),
@@ -176,7 +183,7 @@ async def list_tools() -> list[Tool]:
                         "type": "string",
                         "description": (
                             "URL pattern to search for. Examples: '/api/v1/datasets', "
-                            "'/api/v1/retrieval', '/api/v1/chats'. "
+                            "'/api/v1/retrieval'. "
                             "Partial matches are supported."
                         ),
                     },
@@ -185,16 +192,14 @@ async def list_tools() -> list[Tool]:
             },
         ),
         Tool(
-            name="agentic_search_ragflow_docs",
+            name=TOOL_AGENTIC_SEARCH,
             description=(
-                "Perform an agentic search over RAGFlow developer documentation. "
+                f"Perform an agentic search over {project} developer documentation. "
                 "Unlike simple search, this tool automatically decomposes complex questions "
                 "into sub-queries, performs multiple rounds of retrieval, evaluates whether "
                 "enough context has been gathered, and synthesizes a comprehensive answer. "
                 "Best for complex, multi-faceted questions that span multiple API endpoints, "
-                "SDK methods, or concepts. "
-                "Example: 'How do I create a dataset, upload documents, and then set up "
-                "a chat assistant that uses retrieval over those documents?'"
+                "SDK methods, or concepts."
             ),
             inputSchema={
                 "type": "object",
@@ -202,10 +207,8 @@ async def list_tools() -> list[Tool]:
                     "question": {
                         "type": "string",
                         "description": (
-                            "A complex question about RAGFlow that may require searching "
-                            "across multiple documentation sections. Examples: "
-                            "'What is the full workflow for building a RAG pipeline using the Python SDK?', "
-                            "'How do I manage document chunks and configure retrieval settings for a chat assistant?'"
+                            f"A complex question about {project} that may require searching "
+                            "across multiple documentation sections."
                         ),
                     },
                     "max_rounds": {
@@ -231,22 +234,22 @@ async def list_tools() -> list[Tool]:
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
     _, _, retriever, generator, agentic_search = await _get_components()
 
-    if name == "search_ragflow_docs":
+    if name == TOOL_SEARCH:
         return await _handle_search(retriever, arguments)
-    elif name == "ask_ragflow_docs":
+    elif name == TOOL_ASK:
         return await _handle_ask(retriever, generator, arguments)
-    elif name == "list_api_endpoints":
+    elif name == TOOL_LIST_ENDPOINTS:
         return await _handle_list_endpoints(retriever, arguments)
-    elif name == "lookup_api_endpoint":
+    elif name == TOOL_LOOKUP_ENDPOINT:
         return await _handle_lookup_endpoint(retriever, arguments)
-    elif name == "agentic_search_ragflow_docs":
+    elif name == TOOL_AGENTIC_SEARCH:
         return await _handle_agentic_search(agentic_search, arguments)
     else:
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
 
 async def _handle_search(retriever: Retriever, args: dict) -> list[TextContent]:
-    """Handle search_ragflow_docs."""
+    """Handle search_<project>_docs."""
     query = args["query"]
     top_k = args.get("top_k", 5)
     search_mode = args.get("search_mode", "hybrid")
@@ -290,7 +293,7 @@ async def _handle_search(retriever: Retriever, args: dict) -> list[TextContent]:
 async def _handle_ask(
     retriever: Retriever, generator: Generator, args: dict
 ) -> list[TextContent]:
-    """Handle ask_ragflow_docs — RAG-powered Q&A."""
+    """Handle ask_<project>_docs — RAG-powered Q&A."""
     question = args["question"]
     top_k = args.get("top_k", 6)
 
@@ -366,7 +369,7 @@ async def _handle_list_endpoints(retriever: Retriever, args: dict) -> list[TextC
         group = parts[1] if len(parts) > 1 else "Other"
         groups.setdefault(group, []).append(ep)
 
-    output_parts = ["## RAGFlow API Endpoints\n"]
+    output_parts = [f"## {_settings.project_name} API Endpoints\n"]
     for group_name, eps in sorted(groups.items()):
         output_parts.append(f"### {group_name}\n")
         for ep in eps:
@@ -417,7 +420,7 @@ async def _handle_lookup_endpoint(retriever: Retriever, args: dict) -> list[Text
 async def _handle_agentic_search(
     agentic_search: AgenticSearch, args: dict
 ) -> list[TextContent]:
-    """Handle agentic_search_ragflow_docs — multi-step agentic search."""
+    """Handle agentic_search_<project>_docs — multi-step agentic search."""
     question = args["question"]
     max_rounds = args.get("max_rounds", 3)
     top_k_per_query = args.get("top_k_per_query", 5)
