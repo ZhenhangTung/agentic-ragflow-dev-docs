@@ -18,6 +18,7 @@ An MCP (Model Context Protocol) app inspired by [Stripe MCP](https://docs.stripe
 │    • ask_ragflow_docs       — RAG Q&A                        │
 │    • list_api_endpoints     — list API endpoints             │
 │    • lookup_api_endpoint    — look up a specific API endpoint│
+│    • agentic_search_ragflow_docs — multi-step agentic search │
 └──────────────────────┬───────────────────────────────────────┘
                        │
         ┌──────────────┼──────────────┐
@@ -256,11 +257,25 @@ Look up detailed documentation for a specific API endpoint.
 - `url_pattern` (required): URL match pattern
 - `method` (optional): HTTP method (GET/POST/PUT/DELETE)
 
+### agentic_search_ragflow_docs
+
+Perform an agentic search over RAGFlow developer documentation. Unlike simple search, this tool automatically decomposes complex questions into sub-queries, performs multiple rounds of retrieval, evaluates whether enough context has been gathered, and synthesizes a comprehensive answer. Best for complex, multi-faceted questions that span multiple API endpoints, SDK methods, or concepts.
+
+**Parameters:**
+- `question` (required): A complex question about RAGFlow
+- `max_rounds`: Maximum number of search iterations (default 3)
+- `top_k_per_query`: Number of results per sub-query per round (default 5)
+
+**Example:**
+```
+Agentic search "What is the full workflow for building a RAG pipeline — from creating a dataset, uploading documents, to setting up a chat assistant with retrieval?"
+```
+
 ## Project Structure
 
 ```
 agentic-ragflow-dev-docs/
-├── cli.py                  # CLI entry (index / serve / search / ask / status)
+├── cli.py                  # CLI entry (index / serve / search / ask / agentic-search / status)
 ├── pyproject.toml          # Project metadata & dependencies (uv)
 ├── requirements.txt        # Python dependencies (pip-compatible)
 ├── setup_db.sql            # Database initialization SQL
@@ -278,6 +293,7 @@ agentic-ragflow-dev-docs/
     ├── db.py                # PostgreSQL + pgvector data layer
     ├── retriever.py         # Hybrid retrieval engine
     ├── generator.py         # Qwen3.5-Plus RAG generation
+    ├── agentic_search.py    # Multi-step agentic search engine
     ├── indexer.py           # Indexing pipeline
     └── mcp_server.py        # MCP protocol server
 ```

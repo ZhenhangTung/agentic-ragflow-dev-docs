@@ -16,6 +16,7 @@
 │    • ask_ragflow_docs       — RAG 问答                       │
 │    • list_api_endpoints     — 列出 API 端点                  │
 │    • lookup_api_endpoint    — 查询特定 API 端点              │
+│    • agentic_search_ragflow_docs — 多步骤智能搜索            │
 └──────────────────────┬───────────────────────────────────────┘
                        │
         ┌──────────────┼──────────────┐
@@ -220,11 +221,25 @@ Ask "How do I configure a chat assistant with custom retrieval settings?"
 - `url_pattern` (必需): URL 匹配模式
 - `method` (可选): HTTP 方法 (GET/POST/PUT/DELETE)
 
+### agentic_search_ragflow_docs
+
+对 RAGFlow 开发者文档进行智能搜索。与简单搜索不同，该工具会自动将复杂问题拆解为子查询，进行多轮检索，评估上下文是否充分，并生成综合回答。适合跨越多个 API 端点、SDK 方法或概念的复杂多面问题。
+
+**参数：**
+- `question` (必需): 关于 RAGFlow 的复杂问题
+- `max_rounds`: 最大搜索轮次 (默认 3)
+- `top_k_per_query`: 每个子查询每轮返回的结果数 (默认 5)
+
+**示例：**
+```
+Agentic search "从创建数据集、上传文档到设置带检索功能的聊天助手的完整工作流是什么？"
+```
+
 ## 项目结构
 
 ```
 agentic-ragflow-dev-docs/
-├── cli.py                  # CLI 入口 (index / serve / search / ask / status)
+├── cli.py                  # CLI 入口 (index / serve / search / ask / agentic-search / status)
 ├── pyproject.toml          # 项目元数据 & 依赖 (uv)
 ├── requirements.txt        # Python 依赖 (兼容 pip)
 ├── setup_db.sql            # 数据库初始化 SQL
@@ -242,6 +257,7 @@ agentic-ragflow-dev-docs/
     ├── db.py                # PostgreSQL + pgvector 数据层
     ├── retriever.py         # 混合检索引擎
     ├── generator.py         # Qwen3.5-Plus RAG 生成
+    ├── agentic_search.py    # 多步骤智能搜索引擎
     ├── indexer.py           # 索引 Pipeline
     └── mcp_server.py        # MCP 协议服务器
 ```

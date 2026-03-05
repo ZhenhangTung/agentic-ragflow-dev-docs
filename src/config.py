@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     vector_weight: float = Field(default=0.6, alias="VECTOR_WEIGHT")
     fts_weight: float = Field(default=0.4, alias="FTS_WEIGHT")
     similarity_threshold: float = Field(default=0.3, alias="SIMILARITY_THRESHOLD")
+    agentic_max_rounds: int = Field(default=3, alias="AGENTIC_MAX_ROUNDS")
 
     # Docs source
     docs_dir: str = Field(default="docs", alias="DOCS_DIR")
