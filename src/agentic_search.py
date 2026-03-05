@@ -126,6 +126,12 @@ class AgenticSearch:
             base_url=self.settings.dashscope_base_url,
         )
         self.model = self.settings.chat_model
+        self.light_model = self.settings.light_model
+        self._extra_body = (
+            {"enable_thinking": True}
+            if self.settings.enable_thinking
+            else {"enable_thinking": False}
+        )
 
     async def search(
         self,
@@ -200,12 +206,13 @@ class AgenticSearch:
     async def _decompose(self, question: str) -> list[str]:
         """Decompose a complex question into focused sub-queries."""
         resp = await self.client.chat.completions.create(
-            model=self.model,
+            model=self.light_model,
             messages=[
                 {"role": "user", "content": DECOMPOSE_PROMPT.format(question=question)},
             ],
             temperature=0.1,
             max_tokens=512,
+            extra_body={"enable_thinking": False},
         )
         content = resp.choices[0].message.content or ""
         return self._parse_sub_queries(content, question)
@@ -216,7 +223,7 @@ class AgenticSearch:
         """Evaluate if gathered context is sufficient."""
         context = self._format_context(results)
         resp = await self.client.chat.completions.create(
-            model=self.model,
+            model=self.light_model,
             messages=[
                 {
                     "role": "user",
@@ -227,6 +234,7 @@ class AgenticSearch:
             ],
             temperature=0.1,
             max_tokens=512,
+            extra_body={"enable_thinking": False},
         )
         content = resp.choices[0].message.content or ""
         return self._parse_evaluation(content)
@@ -248,6 +256,7 @@ class AgenticSearch:
             ],
             temperature=0.1,
             max_tokens=3000,
+            extra_body=self._extra_body,
         )
         return resp.choices[0].message.content or ""
 

@@ -284,6 +284,10 @@ Final Score = α × vector_score + β × fts_score
 - **全文检索**: PostgreSQL tsvector 加权匹配 (API 标识符权重最高)
 - **结果融合**: FULL OUTER JOIN 合并两种检索结果
 
+## Memo
+
+- 问题记录与复盘请见 [docs/memo.md](./docs/memo.md)。
+
 ## License
 
 MIT

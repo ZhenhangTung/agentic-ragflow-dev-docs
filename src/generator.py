@@ -41,6 +41,11 @@ class Generator:
             base_url=self.settings.dashscope_base_url,
         )
         self.model = self.settings.chat_model
+        self._extra_body = (
+            {"enable_thinking": True}
+            if self.settings.enable_thinking
+            else {"enable_thinking": False}
+        )
 
     async def generate(
         self,
@@ -82,6 +87,7 @@ class Generator:
             ],
             temperature=temperature,
             max_tokens=max_tokens,
+            extra_body=self._extra_body,
         )
 
         return resp.choices[0].message.content
@@ -123,6 +129,7 @@ class Generator:
             temperature=temperature,
             max_tokens=max_tokens,
             stream=True,
+            extra_body=self._extra_body,
         )
 
         async for chunk in stream:

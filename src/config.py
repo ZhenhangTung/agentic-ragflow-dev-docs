@@ -18,6 +18,16 @@ class Settings(BaseSettings):
     embedding_model: str = Field(default="text-embedding-v4", alias="EMBEDDING_MODEL")
     embedding_dimensions: int = Field(default=1024, alias="EMBEDDING_DIMENSIONS")
     chat_model: str = Field(default="qwen-plus", alias="CHAT_MODEL")
+    light_model: str = Field(
+        default="qwen-flash",
+        alias="LIGHT_MODEL",
+        description="Fast small model for decompose / evaluate / metadata / pre-filter tasks",
+    )
+    enable_thinking: bool = Field(
+        default=False,
+        alias="ENABLE_THINKING",
+        description="Whether to enable Qwen3.5 thinking mode (adds latency)",
+    )
 
     # PostgreSQL
     postgres_host: str = Field(default="localhost", alias="POSTGRES_HOST")
@@ -35,6 +45,8 @@ class Settings(BaseSettings):
     vector_weight: float = Field(default=0.6, alias="VECTOR_WEIGHT")
     fts_weight: float = Field(default=0.4, alias="FTS_WEIGHT")
     similarity_threshold: float = Field(default=0.3, alias="SIMILARITY_THRESHOLD")
+
+    # Agentic search
     agentic_max_rounds: int = Field(default=3, alias="AGENTIC_MAX_ROUNDS")
 
     # Docs source

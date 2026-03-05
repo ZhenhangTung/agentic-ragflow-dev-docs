@@ -138,6 +138,71 @@ LIMIT $2;
 COUNT_CHUNKS_SQL = "SELECT COUNT(*) FROM doc_chunks;"
 CLEAR_CHUNKS_SQL = "TRUNCATE doc_chunks RESTART IDENTITY;"
 
+# ── File metadata table for pre-filter ───────────────────────────────────
+
+CREATE_FILE_METADATA_TABLE_SQL = """
+CREATE TABLE IF NOT EXISTS file_metadata (
+    doc_name    TEXT PRIMARY KEY,
+    metadata    JSONB NOT NULL DEFAULT '{}',
+    match_text  TEXT NOT NULL DEFAULT '',
+    created_at  TIMESTAMP DEFAULT NOW()
+);
+"""
+
+UPSERT_FILE_METADATA_SQL = """
+INSERT INTO file_metadata (doc_name, metadata, match_text)
+VALUES ($1, $2, $3)
+ON CONFLICT (doc_name) DO UPDATE SET
+    metadata = EXCLUDED.metadata,
+    match_text = EXCLUDED.match_text;
+"""
+
+GET_ALL_FILE_METADATA_SQL = """
+SELECT doc_name, metadata, match_text FROM file_metadata;
+"""
+
+# ── Filtered hybrid search (restrict to specific doc_names) ──────────────
+
+FILTERED_HYBRID_SEARCH_SQL = """
+WITH vector_search AS (
+    SELECT
+        id, content, doc_name, section_path, chunk_type,
+        api_method, endpoint_url, sdk_signature, metadata,
+        1 - (embedding <=> $1::vector) AS vector_score
+    FROM doc_chunks
+    WHERE doc_name = ANY($6)
+    ORDER BY embedding <=> $1::vector
+    LIMIT $2
+),
+fts_search AS (
+    SELECT
+        id, content, doc_name, section_path, chunk_type,
+        api_method, endpoint_url, sdk_signature, metadata,
+        ts_rank_cd(fts_vector, query) AS fts_score
+    FROM doc_chunks, plainto_tsquery('english', $3) query
+    WHERE fts_vector @@ query AND doc_name = ANY($6)
+    ORDER BY fts_score DESC
+    LIMIT $2
+)
+SELECT
+    COALESCE(v.id, f.id) AS id,
+    COALESCE(v.content, f.content) AS content,
+    COALESCE(v.doc_name, f.doc_name) AS doc_name,
+    COALESCE(v.section_path, f.section_path) AS section_path,
+    COALESCE(v.chunk_type, f.chunk_type) AS chunk_type,
+    COALESCE(v.api_method, f.api_method) AS api_method,
+    COALESCE(v.endpoint_url, f.endpoint_url) AS endpoint_url,
+    COALESCE(v.sdk_signature, f.sdk_signature) AS sdk_signature,
+    COALESCE(v.metadata, f.metadata) AS metadata,
+    COALESCE(v.vector_score, 0) AS vector_score,
+    COALESCE(f.fts_score, 0) AS fts_score,
+    ($4 * COALESCE(v.vector_score, 0) + $5 * COALESCE(f.fts_score, 0)) AS hybrid_score
+FROM vector_search v
+FULL OUTER JOIN fts_search f ON v.id = f.id
+ORDER BY hybrid_score DESC
+LIMIT $7;
+"""
+
 
 class Database:
     """Async PostgreSQL database with vector + full-text search."""
@@ -171,6 +236,7 @@ class Database:
                 dimensions=self.settings.embedding_dimensions
             )
             await conn.execute(create_sql)
+            await conn.execute(CREATE_FILE_METADATA_TABLE_SQL)
 
     async def create_indexes(self):
         """Create search indexes (call after data is loaded)."""
@@ -273,3 +339,77 @@ class Database:
     async def clear_all(self):
         async with self.pool.acquire() as conn:
             await conn.execute(CLEAR_CHUNKS_SQL)
+
+    # ── File metadata ────────────────────────────────────────────────────
+
+    async def save_file_metadata(self, metadata_dict: dict[str, dict]):
+        """Store file-level metadata for pre-filter."""
+        async with self.pool.acquire() as conn:
+            for doc_name, meta in metadata_dict.items():
+                match_text = self._build_match_text(meta)
+                await conn.execute(
+                    UPSERT_FILE_METADATA_SQL,
+                    doc_name,
+                    json.dumps(meta),
+                    match_text,
+                )
+
+    async def get_all_file_metadata(self) -> list[dict]:
+        """Retrieve all file metadata for pre-filter."""
+        async with self.pool.acquire() as conn:
+            rows = await conn.fetch(GET_ALL_FILE_METADATA_SQL)
+            return [
+                {
+                    "doc_name": row["doc_name"],
+                    "metadata": json.loads(row["metadata"]) if isinstance(row["metadata"], str) else row["metadata"],
+                    "match_text": row["match_text"],
+                }
+                for row in rows
+            ]
+
+    @staticmethod
+    def _build_match_text(meta: dict) -> str:
+        parts = [
+            f"File: {meta.get('doc_name', '')}",
+            f"Category: {meta.get('file_category', '')}",
+            f"Summary: {meta.get('summary', '')}",
+        ]
+        if meta.get("keywords"):
+            parts.append(f"Keywords: {', '.join(meta['keywords'])}")
+        if meta.get("topics"):
+            parts.append(f"Topics: {', '.join(meta['topics'])}")
+        if meta.get("endpoints"):
+            parts.append(f"Endpoints: {', '.join(meta['endpoints'][:20])}")
+        if meta.get("sdk_methods"):
+            parts.append(f"SDK methods: {', '.join(meta['sdk_methods'])}")
+        if meta.get("covered_apis"):
+            parts.append(f"Covered APIs: {'; '.join(meta['covered_apis'])}")
+        if meta.get("target_queries"):
+            parts.append(f"Example questions: {'; '.join(meta['target_queries'])}")
+        return "\n".join(parts)
+
+    # ── Filtered search ──────────────────────────────────────────────────
+
+    async def filtered_hybrid_search(
+        self,
+        query_embedding: list[float],
+        query_text: str,
+        doc_names: list[str],
+        top_k: int = 8,
+        vector_weight: float = 0.6,
+        fts_weight: float = 0.4,
+    ) -> list[dict]:
+        """Hybrid search filtered to specific document files."""
+        async with self.pool.acquire() as conn:
+            await register_vector(conn)
+            rows = await conn.fetch(
+                FILTERED_HYBRID_SEARCH_SQL,
+                query_embedding,
+                top_k * 2,
+                query_text,
+                vector_weight,
+                fts_weight,
+                doc_names,
+                top_k,
+            )
+            return [dict(row) for row in rows]

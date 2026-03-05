@@ -320,6 +320,10 @@ Default weights: α = 0.6, β = 0.4
 - **Full-text retrieval**: PostgreSQL tsvector weighted matching (API identifiers ranked highest)
 - **Result fusion**: FULL OUTER JOIN merges results from both retrieval methods
 
+## Memo
+
+- See [docs/memo.md](./docs/memo.md) for issue notes and postmortems.
+
 ## License
 
 MIT
