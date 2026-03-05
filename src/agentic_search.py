@@ -207,7 +207,8 @@ class AgenticSearch:
             temperature=0.1,
             max_tokens=512,
         )
-        return self._parse_sub_queries(resp.choices[0].message.content, question)
+        content = resp.choices[0].message.content or ""
+        return self._parse_sub_queries(content, question)
 
     async def _evaluate(
         self, question: str, results: list[RetrievalResult]
@@ -227,7 +228,8 @@ class AgenticSearch:
             temperature=0.1,
             max_tokens=512,
         )
-        return self._parse_evaluation(resp.choices[0].message.content)
+        content = resp.choices[0].message.content or ""
+        return self._parse_evaluation(content)
 
     async def _synthesize(
         self, question: str, results: list[RetrievalResult]
@@ -247,7 +249,7 @@ class AgenticSearch:
             temperature=0.1,
             max_tokens=3000,
         )
-        return resp.choices[0].message.content
+        return resp.choices[0].message.content or ""
 
     # ── Helpers ───────────────────────────────────────────────────────────
 
