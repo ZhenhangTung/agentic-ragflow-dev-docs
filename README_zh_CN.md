@@ -1,6 +1,8 @@
-# RAGFlow Developer Docs MCP App
+# DevDocs RAG Framework
 
-一个受 [Stripe MCP](https://docs.stripe.com/mcp) 启发的 MCP（Model Context Protocol）应用，为 AI Agent 提供 RAGFlow 开发者文档的智能检索和问答能力。
+**面向开发者文档 QA 和 vibecoding 的 Python RAG 框架**
+
+一个受 [Stripe MCP](https://docs.stripe.com/mcp) 启发的 MCP（Model Context Protocol）框架，为 AI Agent 提供任意开发者文档库的智能检索和问答能力。通过设置几个环境变量即可配置为 RAGFlow、LangChain、FastAPI 或任何项目。
 
 ## 架构概述
 
@@ -11,12 +13,12 @@
                        │ Streamable HTTP (MCP Protocol)
 ┌──────────────────────▼───────────────────────────────────────┐
 │                    MCP Server (mcp_server.py)                │
-│  Tools:                                                      │
-│    • search_ragflow_docs    — 混合检索文档                    │
-│    • ask_ragflow_docs       — RAG 问答                       │
+│  Tools（名称基于 PROJECT_NAME 动态生成）:                     │
+│    • search_{slug}_docs     — 混合检索文档                    │
+│    • ask_{slug}_docs        — RAG 问答                       │
 │    • list_api_endpoints     — 列出 API 端点                  │
 │    • lookup_api_endpoint    — 查询特定 API 端点              │
-│    • agentic_search_ragflow_docs — 多步骤智能搜索            │
+│    • agentic_search_{slug}_docs — 多步骤智能搜索              │
 └──────────────────────┬───────────────────────────────────────┘
                        │
         ┌──────────────┼──────────────┐
@@ -43,11 +45,13 @@
 
 ## 文档来源
 
-从 [infiniflow/ragflow-docs](https://github.com/infiniflow/ragflow-docs) 的 `website/docs/references/` 目录下载：
+默认从 [infiniflow/ragflow-docs](https://github.com/infiniflow/ragflow-docs) 的 `website/docs/references/` 目录下载：
 
 - `http_api_reference.md` — HTTP API 完整参考
 - `python_api_reference.md` — Python SDK 完整参考
 - `glossary.mdx` — 术语表
+
+你可以通过在 `.env` 中设置 `GITHUB_RAW_BASE` 和 `DOC_FILES` 来指向任意文档库——详见下方 [支持不同的文档库](#支持不同的文档库)。
 
 ## 快速开始
 
@@ -86,6 +90,10 @@ cp .env.example .env
 
 `.env` 示例：
 ```env
+# 项目标识（更换文档库时修改以下配置）
+PROJECT_NAME=RAGFlow
+PROJECT_DESCRIPTION=RAGFlow API documentation (HTTP API and Python SDK references)
+
 DASHSCOPE_API_KEY=sk-your-dashscope-api-key
 POSTGRES_HOST=localhost
 POSTGRES_PORT=5432
@@ -178,9 +186,12 @@ Then add in Cursor Settings → MCP:
 
 ## MCP Tools
 
-### search_ragflow_docs
+> **注意：** 工具名称基于 `PROJECT_NAME` 动态生成。以下示例使用默认值 `PROJECT_NAME=RAGFlow`，对应 slug 为 `ragflow`。若设置 `PROJECT_NAME=LangChain`，工具名称会变为 `search_langchain_docs`、`ask_langchain_docs` 等。
 
-搜索 RAGFlow 文档，支持混合检索（向量 + 全文）。
+### search_{slug}_docs
+
+搜索项目文档，支持混合检索（向量 + 全文）。
+*（默认：`search_ragflow_docs`）*
 
 **参数：**
 - `query` (必需): 搜索查询
@@ -193,12 +204,13 @@ Then add in Cursor Settings → MCP:
 Search for "create dataset API endpoint"
 ```
 
-### ask_ragflow_docs
+### ask_{slug}_docs
 
 基于文档的 RAG 问答，返回 AI 生成的答案和引用来源。
+*（默认：`ask_ragflow_docs`）*
 
 **参数：**
-- `question` (必需): 关于 RAGFlow 的问题
+- `question` (必需): 关于项目的问题
 - `top_k`: 上下文块数量 (默认 6)
 
 **示例：**
@@ -208,7 +220,7 @@ Ask "How do I configure a chat assistant with custom retrieval settings?"
 
 ### list_api_endpoints
 
-列出所有 RAGFlow API 端点，按类别分组。
+列出所有 API 端点，按类别分组。
 
 **参数：**
 - `category` (可选): 过滤类别 (dataset, document, chunk, chat 等)
@@ -221,12 +233,13 @@ Ask "How do I configure a chat assistant with custom retrieval settings?"
 - `url_pattern` (必需): URL 匹配模式
 - `method` (可选): HTTP 方法 (GET/POST/PUT/DELETE)
 
-### agentic_search_ragflow_docs
+### agentic_search_{slug}_docs
 
-对 RAGFlow 开发者文档进行智能搜索。与简单搜索不同，该工具会自动将复杂问题拆解为子查询，进行多轮检索，评估上下文是否充分，并生成综合回答。适合跨越多个 API 端点、SDK 方法或概念的复杂多面问题。
+对开发者文档进行智能搜索。与简单搜索不同，该工具会自动将复杂问题拆解为子查询，进行多轮检索，评估上下文是否充分，并生成综合回答。适合跨越多个 API 端点、SDK 方法或概念的复杂多面问题。
+*（默认：`agentic_search_ragflow_docs`）*
 
 **参数：**
-- `question` (必需): 关于 RAGFlow 的复杂问题
+- `question` (必需): 关于项目的复杂问题
 - `max_rounds`: 最大搜索轮次 (默认 3)
 - `top_k_per_query`: 每个子查询每轮返回的结果数 (默认 5)
 
@@ -235,12 +248,45 @@ Ask "How do I configure a chat assistant with custom retrieval settings?"
 Agentic search "从创建数据集、上传文档到设置带检索功能的聊天助手的完整工作流是什么？"
 ```
 
+## 支持不同的文档库
+
+DevDocs RAG 是框架无关的。要索引不同项目的文档，在 `.env` 中设置以下环境变量：
+
+### 示例：LangChain
+
+```env
+PROJECT_NAME=LangChain
+PROJECT_DESCRIPTION=LangChain Python SDK reference and guides
+SDK_CLASS_NAMES=["ChatOpenAI","LLMChain","PromptTemplate","VectorStore","Runnable"]  # JSON array
+GITHUB_RAW_BASE=https://raw.githubusercontent.com/langchain-ai/langchain/master/docs
+DOC_FILES=["docs/api_reference.md"]
+POSTGRES_DB=langchain_docs
+```
+
+### 示例：FastAPI
+
+```env
+PROJECT_NAME=FastAPI
+PROJECT_DESCRIPTION=FastAPI web framework reference documentation
+SDK_CLASS_NAMES=["FastAPI","APIRouter","Depends","HTTPException","Request","Response"]  # JSON array
+GITHUB_RAW_BASE=https://raw.githubusercontent.com/tiangolo/fastapi/master
+DOC_FILES=["docs/en/docs/reference/apirouter.md","docs/en/docs/reference/fastapi.md"]
+POSTGRES_DB=fastapi_docs
+```
+
+修改配置后，重新运行索引步骤：
+```bash
+uv run python cli.py index --force-download --force-reindex
+```
+
+MCP 工具名称会自动更新——例如设置 `PROJECT_NAME=LangChain` 后，工具名变为 `search_langchain_docs`、`ask_langchain_docs` 和 `agentic_search_langchain_docs`。
+
 ## 项目结构
 
 ```
 agentic-ragflow-dev-docs/
 ├── cli.py                  # CLI 入口 (index / serve / search / ask / agentic-search / status)
-├── pyproject.toml          # 项目元数据 & 依赖 (uv)
+├── pyproject.toml          # 项目元数据 & 依赖 (包名: devdocs-rag)
 ├── requirements.txt        # Python 依赖 (兼容 pip)
 ├── setup_db.sql            # 数据库初始化 SQL
 ├── .env.example            # 环境变量模板
@@ -248,7 +294,7 @@ agentic-ragflow-dev-docs/
 │   ├── http_api_reference.md
 │   ├── python_api_reference.md
 │   └── glossary.mdx
-└── src/
+└── devdocs_rag/
     ├── __init__.py
     ├── config.py            # Pydantic Settings 配置
     ├── downloader.py        # 从 GitHub 下载文档
@@ -258,6 +304,7 @@ agentic-ragflow-dev-docs/
     ├── retriever.py         # 混合检索引擎
     ├── generator.py         # Qwen3.5-Plus RAG 生成
     ├── agentic_search.py    # 多步骤智能搜索引擎
+    ├── metadata_enricher.py # 块元数据增强
     ├── indexer.py           # 索引 Pipeline
     └── mcp_server.py        # MCP 协议服务器
 ```
