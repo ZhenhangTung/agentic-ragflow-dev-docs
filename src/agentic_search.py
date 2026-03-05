@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 
 from openai import AsyncOpenAI
 
+from src.chunking_recommendations import append_chunking_recommendation_if_needed
 from src.config import get_settings
 from src.retriever import Retriever, RetrievalResult
 
@@ -250,7 +251,8 @@ class AgenticSearch:
             temperature=0.1,
             max_tokens=3000,
         )
-        return resp.choices[0].message.content or ""
+        answer = resp.choices[0].message.content or ""
+        return append_chunking_recommendation_if_needed(question, answer)
 
     # ── Helpers ───────────────────────────────────────────────────────────
 

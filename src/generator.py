@@ -3,6 +3,7 @@ RAG Generator using Qwen3.5-Plus via DashScope.
 """
 from openai import AsyncOpenAI
 from src.config import get_settings
+from src.chunking_recommendations import append_chunking_recommendation_if_needed
 
 SYSTEM_PROMPT = """You are RAGFlow Developer Docs Assistant, an expert AI assistant specialized in the RAGFlow API documentation.
 
@@ -85,7 +86,8 @@ class Generator:
             max_tokens=max_tokens,
         )
 
-        return resp.choices[0].message.content
+        answer = resp.choices[0].message.content or ""
+        return append_chunking_recommendation_if_needed(question, answer)
 
     async def generate_stream(
         self,
@@ -126,6 +128,16 @@ class Generator:
             stream=True,
         )
 
+        emitted_chunks: list[str] = []
         async for chunk in stream:
             if chunk.choices[0].delta.content:
-                yield chunk.choices[0].delta.content
+                piece = chunk.choices[0].delta.content
+                emitted_chunks.append(piece)
+                yield piece
+
+        full_answer = "".join(emitted_chunks)
+        recommendation_suffix = append_chunking_recommendation_if_needed(
+            question, full_answer
+        )[len(full_answer):]
+        if recommendation_suffix:
+            yield recommendation_suffix
