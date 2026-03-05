@@ -1,5 +1,5 @@
 """
-Metadata enrichment for document chunks.
+DevDocs RAG Framework - Metadata enrichment for document chunks.
 
 Generates two kinds of metadata:
   1. Built-in (rule-based): file category, API topics, key entities extracted via regex.
@@ -15,8 +15,8 @@ from dataclasses import dataclass, field
 
 from openai import AsyncOpenAI
 
-from src.config import get_settings
-from src.chunker import DocChunk
+from devdocs_rag.config import get_settings
+from devdocs_rag.chunker import DocChunk
 
 logger = logging.getLogger(__name__)
 
@@ -40,17 +40,25 @@ _TOPIC_PATTERNS: list[tuple[str, re.Pattern]] = [
     ("authentication", re.compile(r"auth|api.?key|token", re.I)),
 ]
 
-_ENTITY_RE = re.compile(
-    r"\b(RAGFlow|DataSet|Dataset|Document|Chunk|Chat|Session|Agent|Memory|Ragflow)\b"
-)
-
 _ENDPOINT_RE = re.compile(
     r"(GET|POST|PUT|DELETE|PATCH)\s+(/api/v\d+/\S+)", re.I
 )
 
-_SDK_METHOD_RE = re.compile(
-    r"(?:RAGFlow|DataSet|Dataset|Document|Chunk|Chat|Session|Agent|Memory)\.(\w+)"
-)
+
+def _build_entity_pattern(class_names: list[str]) -> re.Pattern:
+    """Build entity extraction regex from configurable SDK class names."""
+    if not class_names:
+        return re.compile(r"(?!)")
+    names = "|".join(re.escape(n) for n in class_names)
+    return re.compile(rf"\b({names})\b")
+
+
+def _build_sdk_method_pattern(class_names: list[str]) -> re.Pattern:
+    """Build SDK method extraction regex from configurable class names."""
+    if not class_names:
+        return re.compile(r"(?!)")
+    names = "|".join(re.escape(n) for n in class_names)
+    return re.compile(rf"(?:{names})\.(\w+)")
 
 
 def _detect_file_category(doc_name: str) -> str:
@@ -69,26 +77,32 @@ def _detect_topics(text: str) -> list[str]:
     return topics
 
 
-def _extract_entities(text: str) -> list[str]:
-    return sorted(set(_ENTITY_RE.findall(text)))
+def _extract_entities(text: str, class_names: list[str] | None = None) -> list[str]:
+    if class_names is None:
+        class_names = get_settings().sdk_class_names
+    pattern = _build_entity_pattern(class_names)
+    return sorted(set(pattern.findall(text)))
 
 
 def _extract_endpoints(text: str) -> list[str]:
     return [f"{m.group(1)} {m.group(2)}" for m in _ENDPOINT_RE.finditer(text)]
 
 
-def _extract_sdk_methods(text: str) -> list[str]:
-    return sorted(set(_SDK_METHOD_RE.findall(text)))
+def _extract_sdk_methods(text: str, class_names: list[str] | None = None) -> list[str]:
+    if class_names is None:
+        class_names = get_settings().sdk_class_names
+    pattern = _build_sdk_method_pattern(class_names)
+    return sorted(set(pattern.findall(text)))
 
 
-def extract_builtin_metadata(doc_name: str, full_text: str) -> dict:
+def extract_builtin_metadata(doc_name: str, full_text: str, class_names: list[str] | None = None) -> dict:
     """Extract rule-based metadata from a full document."""
     return {
         "file_category": _detect_file_category(doc_name),
         "topics": _detect_topics(full_text),
-        "entities": _extract_entities(full_text),
+        "entities": _extract_entities(full_text, class_names),
         "endpoints": _extract_endpoints(full_text)[:50],  # cap for storage
-        "sdk_methods": _extract_sdk_methods(full_text),
+        "sdk_methods": _extract_sdk_methods(full_text, class_names),
     }
 
 
@@ -172,7 +186,7 @@ async def generate_file_metadata(
     settings = get_settings()
 
     # 1. Built-in metadata
-    builtin = extract_builtin_metadata(doc_name, full_text)
+    builtin = extract_builtin_metadata(doc_name, full_text, settings.sdk_class_names)
     meta = FileMetadata(
         doc_name=doc_name,
         file_category=builtin["file_category"],

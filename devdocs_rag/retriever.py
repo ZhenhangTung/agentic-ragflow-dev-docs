@@ -1,9 +1,9 @@
 """
-Hybrid retrieval engine combining vector search and full-text search.
+DevDocs RAG Framework - Hybrid retrieval engine.
 
-Supports optional LLM-based pre-filtering that uses a small model to
-select the most relevant document files before running the expensive
-hybrid search.
+Combines vector search and full-text search with optional LLM-based
+pre-filtering that uses a small model to select the most relevant
+document files before running the expensive hybrid search.
 """
 import json
 import logging
@@ -11,24 +11,24 @@ from dataclasses import dataclass
 
 from openai import AsyncOpenAI
 
-from src.db import Database
-from src.embedder import Embedder
-from src.config import get_settings
+from devdocs_rag.db import Database
+from devdocs_rag.embedder import Embedder
+from devdocs_rag.config import get_settings
 
 logger = logging.getLogger(__name__)
 
-# ── Pre-filter prompt ────────────────────────────────────────────────────
+# ── Pre-filter prompt template ───────────────────────────────────────────
 
-_PREFILTER_PROMPT = """\
-You are a file-routing agent for RAGFlow developer documentation.
+_PREFILTER_PROMPT_TEMPLATE = """\
+You are a file-routing agent for {project_name} developer documentation.
 
 Given a developer's query and a list of documentation files with their metadata, \
 select which files are most likely to contain the answer.
 
-Query: {query}
+Query: {{query}}
 
 Available files:
-{file_descriptions}
+{{file_descriptions}}
 
 Respond with ONLY a JSON array of file names that are relevant. \
 Include ALL files that might contain relevant information. \
@@ -239,7 +239,9 @@ class Retriever:
             desc = f"- {fm['doc_name']}: {match_text[:300]}"
             descriptions.append(desc)
 
-        prompt = _PREFILTER_PROMPT.format(
+        prompt = _PREFILTER_PROMPT_TEMPLATE.format(
+            project_name=self.settings.project_name,
+        ).format(
             query=query,
             file_descriptions="\n".join(descriptions),
         )

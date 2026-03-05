@@ -1,5 +1,5 @@
 """
-Custom chunking strategy for developer API documentation.
+DevDocs RAG Framework - Custom chunking strategy for developer API documentation.
 
 This chunker is specifically designed for API reference docs that follow patterns like:
 - HTTP endpoint definitions (### Create dataset, POST /api/v1/datasets)
@@ -17,6 +17,8 @@ Strategy:
 import re
 import os
 from dataclasses import dataclass, field
+
+from devdocs_rag.config import get_settings
 
 
 @dataclass
@@ -64,14 +66,39 @@ RE_H4 = re.compile(r"^####\s+(.+)$", re.MULTILINE)
 RE_HTTP_METHOD = re.compile(
     r"\*\*(GET|POST|PUT|DELETE|PATCH)\*\*\s+`([^`]+)`", re.MULTILINE
 )
-RE_SDK_SIGNATURE = re.compile(
-    r"^```python\s*\n((?:RAGFlow|DataSet|Document|Chunk|Chat|Session|Agent|Memory)\.\w+\([^)]*\).*?)$",
-    re.MULTILINE,
-)
 RE_CODE_BLOCK = re.compile(
     r"```(\w*)\s*\n(.*?)```", re.DOTALL
 )
 RE_FRONTMATTER = re.compile(r"^---\s*\n.*?\n---\s*\n", re.DOTALL)
+
+
+def _build_sdk_signature_pattern(class_names: list[str]) -> re.Pattern:
+    """Build regex for SDK method signatures from configurable class names."""
+    if not class_names:
+        return re.compile(r"(?!)")  # never matches
+    names = "|".join(re.escape(n) for n in class_names)
+    return re.compile(
+        rf"^```python\s*\n((?:{names})\.\w+\([^)]*\).*?)$",
+        re.MULTILINE,
+    )
+
+
+def _build_sdk_inline_pattern(class_names: list[str]) -> re.Pattern:
+    """Build regex for inline SDK method references."""
+    if not class_names:
+        return re.compile(r"(?!)")
+    names = "|".join(re.escape(n) for n in class_names)
+    return re.compile(
+        rf"`((?:{names})\.\w+\([^)]*\))`",
+    )
+
+
+def _build_sdk_content_pattern(class_names: list[str]) -> re.Pattern:
+    """Build regex to detect SDK class references in content."""
+    if not class_names:
+        return re.compile(r"(?!)")
+    names = "|".join(re.escape(n) for n in class_names)
+    return re.compile(rf"{names}")
 
 
 def _clean_frontmatter(text: str) -> str:
@@ -117,20 +144,24 @@ def _extract_http_endpoint(text: str) -> tuple[str, str]:
     return "", ""
 
 
-def _extract_sdk_signature(text: str) -> str:
-    """Extract Python SDK method signature."""
+def _extract_sdk_signature(text: str, class_names: list[str] | None = None) -> str:
+    """Extract Python SDK method signature using configurable class names."""
+    if class_names is None:
+        class_names = get_settings().sdk_class_names
+    names = "|".join(re.escape(n) for n in class_names) if class_names else "(?!)"
+
     # Look for patterns like: DataSet.create(...) or RAGFlow.create_dataset(...)
     m = re.search(
-        r"^```python\s*\n((?:RAGFlow|DataSet|Dataset|Document|Chunk|Chat|Session|Agent|Memory|Ragflow)\.\w+\(.*?\))",
+        rf"^```python\s*\n((?:{names})\.\w+\(.*?\))",
         text,
         re.MULTILINE | re.DOTALL,
     )
     if m:
         return m.group(1).split("\n")[0].strip()
 
-    # Also try inline code patterns  
+    # Also try inline code patterns
     m = re.search(
-        r"`((?:RAGFlow|DataSet|Dataset|Document|Chunk|Chat|Session|Agent|Memory|Ragflow)\.\w+\([^)]*\))`",
+        rf"`((?:{names})\.\w+\([^)]*\))`",
         text,
     )
     if m:
@@ -204,7 +235,7 @@ def _smart_split_large_section(text: str, max_tokens: int = 1024) -> list[str]:
     return chunks
 
 
-def _classify_chunk(text: str, heading: str) -> str:
+def _classify_chunk(text: str, heading: str, sdk_content_pattern: re.Pattern | None = None) -> str:
     """Classify a chunk type based on heading and content."""
     heading_lower = heading.lower()
 
@@ -218,14 +249,14 @@ def _classify_chunk(text: str, heading: str) -> str:
         return "error_reference"
     if RE_HTTP_METHOD.search(text):
         return "api_endpoint"
-    if "```python" in text and re.search(r"RAGFlow|DataSet|Document", text):
+    if "```python" in text and sdk_content_pattern and sdk_content_pattern.search(text):
         return "sdk_method"
     if heading_lower in ("_preamble", "glossary"):
         return "overview"
     return "concept"
 
 
-def chunk_document(filepath: str, max_chunk_tokens: int = 1024) -> list[DocChunk]:
+def chunk_document(filepath: str, max_chunk_tokens: int = 1024, sdk_class_names: list[str] | None = None) -> list[DocChunk]:
     """
     Parse and chunk a developer documentation file into semantically
     meaningful chunks optimized for RAG retrieval.
@@ -237,6 +268,11 @@ def chunk_document(filepath: str, max_chunk_tokens: int = 1024) -> list[DocChunk
     4. If any section is too large, smart-split preserving code blocks
     5. Enrich each chunk with metadata for better retrieval
     """
+    if sdk_class_names is None:
+        sdk_class_names = get_settings().sdk_class_names
+
+    sdk_content_pattern = _build_sdk_content_pattern(sdk_class_names)
+
     with open(filepath, "r", encoding="utf-8") as f:
         raw_text = f.read()
 
@@ -273,7 +309,7 @@ def chunk_document(filepath: str, max_chunk_tokens: int = 1024) -> list[DocChunk
             # Extract API metadata
             full_section = f"### {h3_name}\n\n{h3_content}" if h3_name != "_preamble" else h3_content
             http_method, endpoint_url = _extract_http_endpoint(full_section)
-            sdk_sig = _extract_sdk_signature(full_section)
+            sdk_sig = _extract_sdk_signature(full_section, sdk_class_names)
 
             # Try to keep an entire API endpoint as one chunk
             # Split by H4 if the section is too large
@@ -283,7 +319,7 @@ def chunk_document(filepath: str, max_chunk_tokens: int = 1024) -> list[DocChunk
                 # Small section: treat as single chunk
                 sub_chunks = _smart_split_large_section(full_section, max_chunk_tokens)
                 for sub in sub_chunks:
-                    chunk_type = _classify_chunk(sub, h3_name)
+                    chunk_type = _classify_chunk(sub, h3_name, sdk_content_pattern)
                     chunks.append(DocChunk(
                         content=sub,
                         doc_name=doc_name,
@@ -302,7 +338,7 @@ def chunk_document(filepath: str, max_chunk_tokens: int = 1024) -> list[DocChunk
 
                 for group_heading, group_content in grouped:
                     sub_section_path = f"{section_path} > {group_heading}" if group_heading != "_preamble" else section_path
-                    chunk_type = _classify_chunk(group_content, group_heading)
+                    chunk_type = _classify_chunk(group_content, group_heading, sdk_content_pattern)
 
                     sub_chunks = _smart_split_large_section(group_content, max_chunk_tokens)
                     for sub in sub_chunks:
@@ -392,12 +428,12 @@ def _group_h4_subsections(
     return groups
 
 
-def chunk_all_docs(docs_dir: str, max_chunk_tokens: int = 1024) -> list[DocChunk]:
+def chunk_all_docs(docs_dir: str, max_chunk_tokens: int = 1024, sdk_class_names: list[str] | None = None) -> list[DocChunk]:
     """Chunk all documents in the docs directory."""
     all_chunks = []
     for filename in os.listdir(docs_dir):
         if filename.endswith((".md", ".mdx")):
             filepath = os.path.join(docs_dir, filename)
-            doc_chunks = chunk_document(filepath, max_chunk_tokens)
+            doc_chunks = chunk_document(filepath, max_chunk_tokens, sdk_class_names=sdk_class_names)
             all_chunks.extend(doc_chunks)
     return all_chunks

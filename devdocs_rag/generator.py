@@ -1,16 +1,16 @@
 """
-RAG Generator using Qwen3.5-Plus via DashScope.
+DevDocs RAG Framework - RAG answer generator.
 """
 from openai import AsyncOpenAI
-from src.config import get_settings
+from devdocs_rag.config import get_settings
 
-SYSTEM_PROMPT = """You are RAGFlow Developer Docs Assistant, an expert AI assistant specialized in the RAGFlow API documentation.
+SYSTEM_PROMPT_TEMPLATE = """You are {project_name} Developer Docs Assistant, an expert AI assistant specialized in the {project_name} documentation.
 
-Your role is to help developers integrate with RAGFlow by:
-1. Answering questions about the RAGFlow HTTP API and Python SDK
+Your role is to help developers integrate with {project_name} by:
+1. Answering questions about the {project_name} APIs and SDKs
 2. Providing code examples for common integration patterns
 3. Explaining API parameters, request/response formats, and error codes
-4. Guiding users through RAGFlow concepts like datasets, documents, chunks, chat assistants, agents, and memory management
+4. Guiding users through {project_name} concepts and features
 
 Guidelines:
 - Always base your answers on the provided documentation context
@@ -21,21 +21,27 @@ Guidelines:
 - When showing API calls, include all required headers and parameters
 - Mention related endpoints or methods that might be useful"""
 
-CONTEXT_PROMPT = """Based on the following RAGFlow documentation excerpts, answer the developer's question.
+CONTEXT_PROMPT_TEMPLATE = """Based on the following {project_name} documentation excerpts, answer the developer's question.
 
 Documentation Context:
-{context}
+{{context}}
 
-Developer's Question: {question}
+Developer's Question: {{question}}
 
 Provide a clear, actionable answer with code examples where appropriate."""
 
 
 class Generator:
-    """RAG answer generator using Qwen via DashScope."""
+    """RAG answer generator using LLM via OpenAI-compatible API."""
 
     def __init__(self):
         self.settings = get_settings()
+        self.system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
+            project_name=self.settings.project_name,
+        )
+        self.context_prompt = CONTEXT_PROMPT_TEMPLATE.format(
+            project_name=self.settings.project_name,
+        )
         self.client = AsyncOpenAI(
             api_key=self.settings.dashscope_api_key,
             base_url=self.settings.dashscope_base_url,
@@ -75,14 +81,14 @@ class Generator:
 
         context = "\n\n".join(context_parts)
 
-        user_message = CONTEXT_PROMPT.format(
+        user_message = self.context_prompt.format(
             context=context, question=question
         )
 
         resp = await self.client.chat.completions.create(
             model=self.model,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": user_message},
             ],
             temperature=temperature,
@@ -116,14 +122,14 @@ class Generator:
             context_parts.append(f"--- [{header}] ---\n{chunk['content']}")
 
         context = "\n\n".join(context_parts)
-        user_message = CONTEXT_PROMPT.format(
+        user_message = self.context_prompt.format(
             context=context, question=question
         )
 
         stream = await self.client.chat.completions.create(
             model=self.model,
             messages=[
-                {"role": "system", "content": SYSTEM_PROMPT},
+                {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": user_message},
             ],
             temperature=temperature,

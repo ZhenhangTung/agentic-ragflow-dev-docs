@@ -1,5 +1,5 @@
 """
-Agentic Search Engine for RAGFlow Developer Documentation.
+DevDocs RAG Framework - Agentic Search Engine.
 
 Implements a multi-step search strategy where an LLM agent:
 1. Decomposes complex queries into focused sub-queries
@@ -13,15 +13,15 @@ from dataclasses import dataclass, field
 
 from openai import AsyncOpenAI
 
-from src.config import get_settings
-from src.retriever import Retriever, RetrievalResult
+from devdocs_rag.config import get_settings
+from devdocs_rag.retriever import Retriever, RetrievalResult
 
 logger = logging.getLogger(__name__)
 
-# ── Prompts ──────────────────────────────────────────────────────────────
+# ── Prompt Templates ─────────────────────────────────────────────────────
 
-DECOMPOSE_PROMPT = """\
-You are a search planning agent for RAGFlow developer documentation.
+DECOMPOSE_PROMPT_TEMPLATE = """\
+You are a search planning agent for {project_name} developer documentation.
 
 Given a developer's question, decompose it into 1-4 focused sub-queries that \
 together will retrieve all the documentation needed to answer the original question.
@@ -34,30 +34,30 @@ Each sub-query should target a specific aspect:
 - Code examples
 
 Respond with a JSON object:
-{
+{{
   "sub_queries": ["query1", "query2", ...],
   "reasoning": "Brief explanation of your decomposition strategy"
-}
+}}
 
-Developer's question: {question}"""
+Developer's question: {{question}}"""
 
-EVALUATE_PROMPT = """\
-You are a search evaluation agent for RAGFlow developer documentation.
+EVALUATE_PROMPT_TEMPLATE = """\
+You are a search evaluation agent for {project_name} developer documentation.
 
 Given the developer's original question and the documentation chunks retrieved so far, \
 determine whether we have enough information to provide a complete answer.
 
-Original question: {question}
+Original question: {{question}}
 
 Retrieved documentation:
-{context}
+{{context}}
 
 Respond with a JSON object:
-{
+{{
   "sufficient": true/false,
   "follow_up_queries": ["query1", ...],
   "reasoning": "What information is missing or why the context is sufficient"
-}
+}}
 
 Rules:
 - Set "sufficient" to true if the retrieved docs cover the question adequately.
@@ -66,9 +66,9 @@ Rules:
   request/response formats, and examples.
 - An empty follow_up_queries list with sufficient=true means we can proceed to synthesis."""
 
-SYNTHESIZE_PROMPT = """\
-You are RAGFlow Developer Docs Assistant, an expert AI assistant specialized in \
-RAGFlow API documentation.
+SYNTHESIZE_PROMPT_TEMPLATE = """\
+You are {project_name} Developer Docs Assistant, an expert AI assistant specialized in \
+{project_name} documentation.
 
 You performed an agentic search across multiple documentation sections to answer \
 the developer's question. Synthesize a comprehensive answer from all gathered context.
@@ -82,9 +82,9 @@ Guidelines:
 - Organize your answer with clear sections when covering multiple aspects
 
 Documentation Context:
-{context}
+{{context}}
 
-Developer's Question: {question}
+Developer's Question: {{question}}
 
 Provide a clear, comprehensive, and actionable answer."""
 
@@ -112,7 +112,7 @@ class AgenticSearchResult:
 
 class AgenticSearch:
     """
-    Multi-step agentic search over RAGFlow documentation.
+    Multi-step agentic search over developer documentation.
 
     Flow:
         Question → Decompose → Search → Evaluate → (loop) → Synthesize
@@ -131,6 +131,16 @@ class AgenticSearch:
             {"enable_thinking": True}
             if self.settings.enable_thinking
             else {"enable_thinking": False}
+        )
+        # Render prompt templates with project name
+        self._decompose_prompt = DECOMPOSE_PROMPT_TEMPLATE.format(
+            project_name=self.settings.project_name,
+        )
+        self._evaluate_prompt = EVALUATE_PROMPT_TEMPLATE.format(
+            project_name=self.settings.project_name,
+        )
+        self._synthesize_prompt = SYNTHESIZE_PROMPT_TEMPLATE.format(
+            project_name=self.settings.project_name,
         )
 
     async def search(
@@ -208,7 +218,7 @@ class AgenticSearch:
         resp = await self.client.chat.completions.create(
             model=self.light_model,
             messages=[
-                {"role": "user", "content": DECOMPOSE_PROMPT.format(question=question)},
+                {"role": "user", "content": self._decompose_prompt.format(question=question)},
             ],
             temperature=0.1,
             max_tokens=512,
@@ -227,7 +237,9 @@ class AgenticSearch:
             messages=[
                 {
                     "role": "user",
-                    "content": EVALUATE_PROMPT.format(
+                    "content": EVALUATE_PROMPT_TEMPLATE.format(
+                        project_name=self.settings.project_name,
+                    ).format(
                         question=question, context=context
                     ),
                 },
@@ -249,7 +261,7 @@ class AgenticSearch:
             messages=[
                 {
                     "role": "user",
-                    "content": SYNTHESIZE_PROMPT.format(
+                    "content": self._synthesize_prompt.format(
                         question=question, context=context
                     ),
                 },

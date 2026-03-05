@@ -1,4 +1,4 @@
--- RAGFlow Developer Docs MCP App — Database Setup
+-- DevDocs RAG Framework — Database Setup
 -- Run this script once to set up the PostgreSQL database.
 
 -- 1. Create the database (run as superuser)

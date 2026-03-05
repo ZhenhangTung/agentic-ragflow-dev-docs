@@ -1,5 +1,7 @@
 """
-Indexing pipeline: Download docs → Chunk → Enrich metadata → Embed → Store in PostgreSQL.
+DevDocs RAG Framework - Indexing pipeline.
+
+Download docs → Chunk → Enrich metadata → Embed → Store in PostgreSQL.
 """
 import asyncio
 import json
@@ -7,12 +9,12 @@ import os
 from rich.console import Console
 from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
 
-from src.config import get_settings
-from src.downloader import download_docs
-from src.chunker import chunk_all_docs, DocChunk
-from src.embedder import Embedder
-from src.db import Database
-from src.metadata_enricher import (
+from devdocs_rag.config import get_settings
+from devdocs_rag.downloader import download_docs
+from devdocs_rag.chunker import chunk_all_docs, DocChunk
+from devdocs_rag.embedder import Embedder
+from devdocs_rag.db import Database
+from devdocs_rag.metadata_enricher import (
     generate_file_metadata,
     enrich_chunks_with_file_metadata,
     FileMetadata,
@@ -31,7 +33,7 @@ async def run_indexing_pipeline(force_download: bool = False, force_reindex: boo
     """
     settings = get_settings()
 
-    console.print("\n[bold blue]🚀 RAGFlow Docs Indexing Pipeline[/bold blue]\n")
+    console.print(f"\n[bold blue]🚀 {settings.project_name} Docs Indexing Pipeline[/bold blue]\n")
 
     # Step 1: Download docs
     console.print("[bold]Step 1:[/bold] Downloading documentation...")
@@ -40,7 +42,7 @@ async def run_indexing_pipeline(force_download: bool = False, force_reindex: boo
 
     # Step 2: Chunk documents
     console.print("[bold]Step 2:[/bold] Chunking documents with dev-doc strategy...")
-    chunks = chunk_all_docs(settings.docs_dir, max_chunk_tokens=settings.chunk_size)
+    chunks = chunk_all_docs(settings.docs_dir, max_chunk_tokens=settings.chunk_size, sdk_class_names=settings.sdk_class_names)
     console.print(f"  [green]✓ {len(chunks)} chunks created[/green]")
 
     # Print chunk statistics

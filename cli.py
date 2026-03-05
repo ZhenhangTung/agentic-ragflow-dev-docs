@@ -1,13 +1,15 @@
 """
-CLI entry point for the RAGFlow Developer Docs MCP App.
+CLI entry point for the DevDocs RAG Framework.
 
 Commands:
     index           — Download and index documentation
     serve           — Start the MCP server
     search          — Test search (interactive or one-shot)
-    ask             — Ask a question about RAGFlow
+    ask             — Ask a question about the project docs
     agentic-search  — Multi-step agentic search
     status          — Show index status
+
+Configured for the project set in PROJECT_NAME environment variable.
 """
 import asyncio
 import click
@@ -19,9 +21,15 @@ from rich.markdown import Markdown
 console = Console()
 
 
+def _project_name() -> str:
+    """Get the configured project name for CLI display."""
+    from devdocs_rag.config import get_settings
+    return get_settings().project_name
+
+
 @click.group()
 def cli():
-    """RAGFlow Developer Docs — MCP-powered documentation assistant."""
+    """DevDocs RAG — Developer documentation assistant powered by MCP."""
     pass
 
 
@@ -31,8 +39,8 @@ def cli():
 @click.option("--force-download", is_flag=True, help="Re-download docs even if they exist.")
 @click.option("--force-reindex", is_flag=True, help="Clear database and re-index everything.")
 def index(force_download: bool, force_reindex: bool):
-    """Download and index RAGFlow documentation."""
-    from src.indexer import run_indexing_pipeline
+    """Download and index project documentation."""
+    from devdocs_rag.indexer import run_indexing_pipeline
 
     asyncio.run(run_indexing_pipeline(
         force_download=force_download,
@@ -48,14 +56,19 @@ def index(force_download: bool, force_reindex: bool):
 @click.option("--path", default="/mcp", show_default=True, help="HTTP path for MCP endpoint.")
 def serve(host: str, port: int, path: str):
     """Start the MCP server (Streamable HTTP transport)."""
-    from src.mcp_server import main as mcp_main
+    from devdocs_rag.mcp_server import main as mcp_main
+    from devdocs_rag.config import get_settings
+
+    settings = get_settings()
+    project = settings.project_name
+    slug = settings.project_slug
 
     console.print(Panel(
-        "[bold green]Starting RAGFlow Docs MCP Server[/]\n"
+        f"[bold green]Starting {project} Docs MCP Server[/]\n"
         "Transport: streamable-http\n"
         f"Endpoint: http://{host}:{port}{path}\n"
-        "Tools: search_ragflow_docs, ask_ragflow_docs, list_api_endpoints,\n"
-        "       lookup_api_endpoint, agentic_search_ragflow_docs",
+        f"Tools: search_{slug}_docs, ask_{slug}_docs, list_api_endpoints,\n"
+        f"       lookup_api_endpoint, agentic_search_{slug}_docs",
         title="MCP Server",
     ))
     mcp_main(host=host, port=port, path=path)
@@ -73,9 +86,9 @@ def search(query: str | None, top_k: int, mode: str):
 
 
 async def _search(query: str | None, top_k: int, mode: str):
-    from src.db import Database
-    from src.embedder import Embedder
-    from src.retriever import Retriever
+    from devdocs_rag.db import Database
+    from devdocs_rag.embedder import Embedder
+    from devdocs_rag.retriever import Retriever
 
     db = Database()
     await db.connect()
@@ -143,15 +156,15 @@ async def _run_search(retriever, query: str, top_k: int, mode: str):
 @click.argument("question", required=False)
 @click.option("-k", "--top-k", default=6, help="Number of context chunks.")
 def ask(question: str | None, top_k: int):
-    """Ask a question about RAGFlow (RAG-powered)."""
+    """Ask a question about the project documentation (RAG-powered)."""
     asyncio.run(_ask(question, top_k))
 
 
 async def _ask(question: str | None, top_k: int):
-    from src.db import Database
-    from src.embedder import Embedder
-    from src.retriever import Retriever
-    from src.generator import Generator
+    from devdocs_rag.db import Database
+    from devdocs_rag.embedder import Embedder
+    from devdocs_rag.retriever import Retriever
+    from devdocs_rag.generator import Generator
 
     db = Database()
     await db.connect()
@@ -216,10 +229,10 @@ def agentic_search(question: str | None, max_rounds: int, top_k: int):
 
 
 async def _agentic_search(question: str | None, max_rounds: int, top_k: int):
-    from src.db import Database
-    from src.embedder import Embedder
-    from src.retriever import Retriever
-    from src.agentic_search import AgenticSearch
+    from devdocs_rag.db import Database
+    from devdocs_rag.embedder import Embedder
+    from devdocs_rag.retriever import Retriever
+    from devdocs_rag.agentic_search import AgenticSearch
 
     db = Database()
     await db.connect()
@@ -290,9 +303,9 @@ def status():
 
 
 async def _status():
-    from src.db import Database
-    from src.downloader import list_local_docs
-    from src.config import get_settings
+    from devdocs_rag.db import Database
+    from devdocs_rag.downloader import list_local_docs
+    from devdocs_rag.config import get_settings
 
     settings = get_settings()
 
