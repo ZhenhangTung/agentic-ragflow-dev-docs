@@ -2,11 +2,12 @@
 CLI entry point for the RAGFlow Developer Docs MCP App.
 
 Commands:
-    index   — Download and index documentation
-    serve   — Start the MCP server
-    search  — Test search (interactive or one-shot)
-    ask     — Ask a question about RAGFlow
-    status  — Show index status
+    index           — Download and index documentation
+    serve           — Start the MCP server
+    search          — Test search (interactive or one-shot)
+    ask             — Ask a question about RAGFlow
+    agentic-search  — Multi-step agentic search
+    status          — Show index status
 """
 import asyncio
 import click
@@ -53,7 +54,8 @@ def serve(host: str, port: int, path: str):
         "[bold green]Starting RAGFlow Docs MCP Server[/]\n"
         "Transport: streamable-http\n"
         f"Endpoint: http://{host}:{port}{path}\n"
-        "Tools: search_ragflow_docs, ask_ragflow_docs, list_api_endpoints, lookup_api_endpoint",
+        "Tools: search_ragflow_docs, ask_ragflow_docs, list_api_endpoints,\n"
+        "       lookup_api_endpoint, agentic_search_ragflow_docs",
         title="MCP Server",
     ))
     mcp_main(host=host, port=port, path=path)
@@ -199,6 +201,83 @@ async def _run_ask(retriever, generator, question: str, top_k: int):
             ref += f" ({r.api_method} {r.endpoint_url})"
         ref += f" [{r.doc_name}]"
         console.print(f"[dim]{ref}[/]")
+    console.print()
+
+
+# ── agentic-search ────────────────────────────────────────────────────────
+
+@cli.command("agentic-search")
+@click.argument("question", required=False)
+@click.option("-r", "--max-rounds", default=3, help="Maximum search rounds.")
+@click.option("-k", "--top-k", default=5, help="Results per sub-query.")
+def agentic_search(question: str | None, max_rounds: int, top_k: int):
+    """Agentic search — multi-step retrieval with query decomposition."""
+    asyncio.run(_agentic_search(question, max_rounds, top_k))
+
+
+async def _agentic_search(question: str | None, max_rounds: int, top_k: int):
+    from src.db import Database
+    from src.embedder import Embedder
+    from src.retriever import Retriever
+    from src.agentic_search import AgenticSearch
+
+    db = Database()
+    await db.connect()
+    embedder = Embedder()
+    retriever = Retriever(db, embedder)
+    agent = AgenticSearch(retriever)
+
+    try:
+        if question:
+            await _run_agentic_search(agent, question, max_rounds, top_k)
+        else:
+            console.print("[bold]Interactive agentic search mode[/] (type 'quit' to exit)\n")
+            while True:
+                q = console.input("[bold cyan]AgenticSearch>[/] ").strip()
+                if q.lower() in ("quit", "exit", "q"):
+                    break
+                if q:
+                    await _run_agentic_search(agent, q, max_rounds, top_k)
+    finally:
+        await db.close()
+
+
+async def _run_agentic_search(agent, question: str, max_rounds: int, top_k: int):
+    with console.status("[bold green]Running agentic search..."):
+        result = await agent.search(
+            question=question, max_rounds=max_rounds, top_k_per_query=top_k
+        )
+
+    # Show search stats
+    console.print(Panel(
+        f"Rounds: {result.rounds_executed} | "
+        f"Unique chunks retrieved: {result.total_chunks_retrieved}",
+        title="Agentic Search Stats",
+        border_style="blue",
+    ))
+
+    # Show queries per round
+    for i, rnd in enumerate(result.rounds, 1):
+        queries_str = ", ".join(f'"{q}"' for q in rnd.queries)
+        console.print(f"[dim]  Round {i}: {queries_str} → {len(rnd.results)} new chunks[/]")
+    console.print()
+
+    # Show answer
+    console.print(Panel(
+        Markdown(result.answer),
+        title="Answer",
+        border_style="green",
+    ))
+
+    # Show references
+    if result.all_results:
+        console.print("[dim]References:[/]")
+        for i, r in enumerate(result.all_results, 1):
+            ref = f"  {i}. {r.section_path or 'N/A'}"
+            if r.api_method and r.endpoint_url:
+                ref += f" ({r.api_method} {r.endpoint_url})"
+            ref += f" [{r.doc_name}]"
+            console.print(f"[dim]{ref}[/]")
     console.print()
 
 

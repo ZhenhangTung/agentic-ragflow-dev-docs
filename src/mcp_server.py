@@ -9,6 +9,7 @@ Tools:
 - ask_ragflow_docs: Ask questions about RAGFlow and get AI-generated answers
 - list_api_endpoints: List all available API endpoints
 - lookup_api_endpoint: Look up a specific API endpoint by URL pattern
+- agentic_search_ragflow_docs: Multi-step agentic search with query decomposition
 """
 import asyncio
 import json
@@ -28,6 +29,7 @@ from src.db import Database
 from src.embedder import Embedder
 from src.retriever import Retriever
 from src.generator import Generator
+from src.agentic_search import AgenticSearch
 
 # ── MCP Server Setup ─────────────────────────────────────────────────────
 
@@ -38,18 +40,20 @@ _db: Database | None = None
 _embedder: Embedder | None = None
 _retriever: Retriever | None = None
 _generator: Generator | None = None
+_agentic_search: AgenticSearch | None = None
 
 
 async def _get_components():
     """Lazy-initialize all components."""
-    global _db, _embedder, _retriever, _generator
+    global _db, _embedder, _retriever, _generator, _agentic_search
     if _db is None:
         _db = Database()
         await _db.connect()
         _embedder = Embedder()
         _retriever = Retriever(_db, _embedder)
         _generator = Generator()
-    return _db, _embedder, _retriever, _generator
+        _agentic_search = AgenticSearch(_retriever)
+    return _db, _embedder, _retriever, _generator, _agentic_search
 
 
 # ── Tool Definitions ─────────────────────────────────────────────────────
@@ -180,6 +184,44 @@ async def list_tools() -> list[Tool]:
                 "required": ["url_pattern"],
             },
         ),
+        Tool(
+            name="agentic_search_ragflow_docs",
+            description=(
+                "Perform an agentic search over RAGFlow developer documentation. "
+                "Unlike simple search, this tool automatically decomposes complex questions "
+                "into sub-queries, performs multiple rounds of retrieval, evaluates whether "
+                "enough context has been gathered, and synthesizes a comprehensive answer. "
+                "Best for complex, multi-faceted questions that span multiple API endpoints, "
+                "SDK methods, or concepts. "
+                "Example: 'How do I create a dataset, upload documents, and then set up "
+                "a chat assistant that uses retrieval over those documents?'"
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "question": {
+                        "type": "string",
+                        "description": (
+                            "A complex question about RAGFlow that may require searching "
+                            "across multiple documentation sections. Examples: "
+                            "'What is the full workflow for building a RAG pipeline using the Python SDK?', "
+                            "'How do I manage document chunks and configure retrieval settings for a chat assistant?'"
+                        ),
+                    },
+                    "max_rounds": {
+                        "type": "integer",
+                        "description": "Maximum number of search rounds. Default: 3.",
+                        "default": 3,
+                    },
+                    "top_k_per_query": {
+                        "type": "integer",
+                        "description": "Number of results per sub-query per round. Default: 5.",
+                        "default": 5,
+                    },
+                },
+                "required": ["question"],
+            },
+        ),
     ]
 
 
@@ -187,7 +229,7 @@ async def list_tools() -> list[Tool]:
 
 @app.call_tool()
 async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-    _, _, retriever, generator = await _get_components()
+    _, _, retriever, generator, agentic_search = await _get_components()
 
     if name == "search_ragflow_docs":
         return await _handle_search(retriever, arguments)
@@ -197,6 +239,8 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         return await _handle_list_endpoints(retriever, arguments)
     elif name == "lookup_api_endpoint":
         return await _handle_lookup_endpoint(retriever, arguments)
+    elif name == "agentic_search_ragflow_docs":
+        return await _handle_agentic_search(agentic_search, arguments)
     else:
         return [TextContent(type="text", text=f"Unknown tool: {name}")]
 
@@ -366,6 +410,44 @@ async def _handle_lookup_endpoint(retriever: Retriever, args: dict) -> list[Text
             output_parts.append(f"**Endpoint:** `{r.api_method} {r.endpoint_url}`")
         output_parts.append(f"\n{r.content}\n")
         output_parts.append("---\n")
+
+    return [TextContent(type="text", text="\n".join(output_parts))]
+
+
+async def _handle_agentic_search(
+    agentic_search: AgenticSearch, args: dict
+) -> list[TextContent]:
+    """Handle agentic_search_ragflow_docs — multi-step agentic search."""
+    question = args["question"]
+    max_rounds = args.get("max_rounds", 3)
+    top_k_per_query = args.get("top_k_per_query", 5)
+
+    result = await agentic_search.search(
+        question=question,
+        max_rounds=max_rounds,
+        top_k_per_query=top_k_per_query,
+    )
+
+    # Build output with answer and search metadata
+    output_parts = [result.answer]
+    output_parts.append("\n\n---")
+    output_parts.append(
+        f"**Agentic Search Stats:** {result.rounds_executed} round(s), "
+        f"{result.total_chunks_retrieved} unique chunks retrieved"
+    )
+
+    # Append references
+    if result.all_results:
+        refs = []
+        for i, r in enumerate(result.all_results, 1):
+            ref_parts = [f"{i}."]
+            if r.section_path:
+                ref_parts.append(r.section_path)
+            if r.api_method and r.endpoint_url:
+                ref_parts.append(f"({r.api_method} {r.endpoint_url})")
+            ref_parts.append(f"[{r.doc_name}]")
+            refs.append(" ".join(ref_parts))
+        output_parts.append("\n**References:**\n" + "\n".join(refs))
 
     return [TextContent(type="text", text="\n".join(output_parts))]
 
