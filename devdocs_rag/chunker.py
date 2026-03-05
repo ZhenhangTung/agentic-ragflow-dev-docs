@@ -75,7 +75,7 @@ RE_FRONTMATTER = re.compile(r"^---\s*\n.*?\n---\s*\n", re.DOTALL)
 def _build_sdk_signature_pattern(class_names: list[str]) -> re.Pattern:
     """Build regex for SDK method signatures from configurable class names."""
     if not class_names:
-        return re.compile(r"(?!)")  # never matches
+        return re.compile(r"(?!)")  # never-match pattern when no classes configured
     names = "|".join(re.escape(n) for n in class_names)
     return re.compile(
         rf"^```python\s*\n((?:{names})\.\w+\([^)]*\).*?)$",
@@ -86,7 +86,7 @@ def _build_sdk_signature_pattern(class_names: list[str]) -> re.Pattern:
 def _build_sdk_inline_pattern(class_names: list[str]) -> re.Pattern:
     """Build regex for inline SDK method references."""
     if not class_names:
-        return re.compile(r"(?!)")
+        return re.compile(r"(?!)")  # never-match pattern
     names = "|".join(re.escape(n) for n in class_names)
     return re.compile(
         rf"`((?:{names})\.\w+\([^)]*\))`",
@@ -96,7 +96,7 @@ def _build_sdk_inline_pattern(class_names: list[str]) -> re.Pattern:
 def _build_sdk_content_pattern(class_names: list[str]) -> re.Pattern:
     """Build regex to detect SDK class references in content."""
     if not class_names:
-        return re.compile(r"(?!)")
+        return re.compile(r"(?!)")  # never-match pattern
     names = "|".join(re.escape(n) for n in class_names)
     return re.compile(rf"{names}")
 

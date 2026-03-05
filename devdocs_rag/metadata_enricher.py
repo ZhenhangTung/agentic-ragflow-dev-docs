@@ -48,7 +48,7 @@ _ENDPOINT_RE = re.compile(
 def _build_entity_pattern(class_names: list[str]) -> re.Pattern:
     """Build entity extraction regex from configurable SDK class names."""
     if not class_names:
-        return re.compile(r"(?!)")
+        return re.compile(r"(?!)")  # never-match pattern when no classes configured
     names = "|".join(re.escape(n) for n in class_names)
     return re.compile(rf"\b({names})\b")
 
@@ -56,7 +56,7 @@ def _build_entity_pattern(class_names: list[str]) -> re.Pattern:
 def _build_sdk_method_pattern(class_names: list[str]) -> re.Pattern:
     """Build SDK method extraction regex from configurable class names."""
     if not class_names:
-        return re.compile(r"(?!)")
+        return re.compile(r"(?!)")  # never-match pattern
     names = "|".join(re.escape(n) for n in class_names)
     return re.compile(rf"(?:{names})\.(\w+)")
 

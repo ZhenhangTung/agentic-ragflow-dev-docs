@@ -21,12 +21,6 @@ from rich.markdown import Markdown
 console = Console()
 
 
-def _project_name() -> str:
-    """Get the configured project name for CLI display."""
-    from devdocs_rag.config import get_settings
-    return get_settings().project_name
-
-
 @click.group()
 def cli():
     """DevDocs RAG — Developer documentation assistant powered by MCP."""

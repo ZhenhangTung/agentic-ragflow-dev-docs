@@ -29,7 +29,10 @@ class Settings(BaseSettings):
             "Chat", "Session", "Agent", "Memory", "Ragflow",
         ],
         alias="SDK_CLASS_NAMES",
-        description="SDK class names to detect in documentation for signature extraction.",
+        description=(
+            "SDK class names to detect in documentation for signature extraction. "
+            "Include case variants (e.g. RAGFlow + Ragflow) since matching is case-sensitive."
+        ),
     )
 
     # ── LLM Provider ─────────────────────────────────────────────────────
@@ -100,6 +103,8 @@ class Settings(BaseSettings):
             f"@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
         )
 
+    # populate_by_name allows constructing Settings with field names (e.g. project_name=)
+    # in addition to env var aliases (PROJECT_NAME=).
     model_config = {"env_file": ".env", "extra": "ignore", "populate_by_name": True}
 
 
