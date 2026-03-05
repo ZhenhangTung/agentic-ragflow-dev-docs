@@ -196,6 +196,7 @@ Search for "create dataset API endpoint"
 ### ask_ragflow_docs
 
 基于文档的 RAG 问答，返回 AI 生成的答案和引用来源。
+对于“如何提升 chunking 质量”这类文档覆盖不足的问题，也会提供明确标注的通用 ML/NLP 库建议（如 sentence-transformers、spaCy、NLTK）。
 
 **参数：**
 - `question` (必需): 关于 RAGFlow 的问题

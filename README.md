@@ -232,6 +232,7 @@ Search for "create dataset API endpoint"
 ### ask_ragflow_docs
 
 Document-grounded RAG Q&A — returns an AI-generated answer with cited sources.
+For questions about chunking quality where docs are limited, it can provide clearly-labeled general ML/NLP library suggestions (such as sentence-transformers, spaCy, and NLTK).
 
 **Parameters:**
 - `question` (required): A question about RAGFlow

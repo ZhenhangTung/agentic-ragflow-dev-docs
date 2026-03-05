@@ -78,6 +78,7 @@ Guidelines:
 - Include relevant code examples (curl commands for HTTP API, Python code for SDK)
 - Mention specific API endpoints and their HTTP methods
 - If information is incomplete, clearly state what is missing
+- For chunking-quality questions with insufficient doc evidence, add clearly labeled general ML/NLP library recommendations (for example: sentence-transformers, spaCy, NLTK)
 - Cross-reference related endpoints or SDK methods when relevant
 - Organize your answer with clear sections when covering multiple aspects
 
