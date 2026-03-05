@@ -24,9 +24,9 @@ Guidelines:
 CONTEXT_PROMPT_TEMPLATE = """Based on the following {project_name} documentation excerpts, answer the developer's question.
 
 Documentation Context:
-{{context}}
+{context}
 
-Developer's Question: {{question}}
+Developer's Question: {question}
 
 Provide a clear, actionable answer with code examples where appropriate."""
 
@@ -36,11 +36,11 @@ class Generator:
 
     def __init__(self):
         self.settings = get_settings()
-        self.system_prompt = SYSTEM_PROMPT_TEMPLATE.format(
-            project_name=self.settings.project_name,
+        self.system_prompt = SYSTEM_PROMPT_TEMPLATE.replace(
+            "{project_name}", self.settings.project_name,
         )
-        self.context_prompt = CONTEXT_PROMPT_TEMPLATE.format(
-            project_name=self.settings.project_name,
+        self.context_prompt = CONTEXT_PROMPT_TEMPLATE.replace(
+            "{project_name}", self.settings.project_name,
         )
         self.client = AsyncOpenAI(
             api_key=self.settings.dashscope_api_key,
@@ -81,8 +81,10 @@ class Generator:
 
         context = "\n\n".join(context_parts)
 
-        user_message = self.context_prompt.format(
-            context=context, question=question
+        user_message = self.context_prompt.replace(
+            "{context}", context
+        ).replace(
+            "{question}", question
         )
 
         resp = await self.client.chat.completions.create(
@@ -122,8 +124,10 @@ class Generator:
             context_parts.append(f"--- [{header}] ---\n{chunk['content']}")
 
         context = "\n\n".join(context_parts)
-        user_message = self.context_prompt.format(
-            context=context, question=question
+        user_message = self.context_prompt.replace(
+            "{context}", context
+        ).replace(
+            "{question}", question
         )
 
         stream = await self.client.chat.completions.create(

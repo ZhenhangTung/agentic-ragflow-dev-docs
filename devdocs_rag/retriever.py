@@ -25,10 +25,10 @@ You are a file-routing agent for {project_name} developer documentation.
 Given a developer's query and a list of documentation files with their metadata, \
 select which files are most likely to contain the answer.
 
-Query: {{query}}
+Query: {query}
 
 Available files:
-{{file_descriptions}}
+{file_descriptions}
 
 Respond with ONLY a JSON array of file names that are relevant. \
 Include ALL files that might contain relevant information. \
@@ -239,11 +239,12 @@ class Retriever:
             desc = f"- {fm['doc_name']}: {match_text[:300]}"
             descriptions.append(desc)
 
-        prompt = _PREFILTER_PROMPT_TEMPLATE.format(
-            project_name=self.settings.project_name,
-        ).format(
-            query=query,
-            file_descriptions="\n".join(descriptions),
+        prompt = _PREFILTER_PROMPT_TEMPLATE.replace(
+            "{project_name}", self.settings.project_name,
+        ).replace(
+            "{query}", query,
+        ).replace(
+            "{file_descriptions}", "\n".join(descriptions),
         )
 
         client = AsyncOpenAI(

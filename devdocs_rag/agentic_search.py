@@ -34,12 +34,12 @@ Each sub-query should target a specific aspect:
 - Code examples
 
 Respond with a JSON object:
-{{
+{
   "sub_queries": ["query1", "query2", ...],
   "reasoning": "Brief explanation of your decomposition strategy"
-}}
+}
 
-Developer's question: {{question}}"""
+Developer's question: {question}"""
 
 EVALUATE_PROMPT_TEMPLATE = """\
 You are a search evaluation agent for {project_name} developer documentation.
@@ -47,17 +47,17 @@ You are a search evaluation agent for {project_name} developer documentation.
 Given the developer's original question and the documentation chunks retrieved so far, \
 determine whether we have enough information to provide a complete answer.
 
-Original question: {{question}}
+Original question: {question}
 
 Retrieved documentation:
-{{context}}
+{context}
 
 Respond with a JSON object:
-{{
+{
   "sufficient": true/false,
   "follow_up_queries": ["query1", ...],
   "reasoning": "What information is missing or why the context is sufficient"
-}}
+}
 
 Rules:
 - Set "sufficient" to true if the retrieved docs cover the question adequately.
@@ -82,9 +82,9 @@ Guidelines:
 - Organize your answer with clear sections when covering multiple aspects
 
 Documentation Context:
-{{context}}
+{context}
 
-Developer's Question: {{question}}
+Developer's Question: {question}
 
 Provide a clear, comprehensive, and actionable answer."""
 
@@ -132,16 +132,12 @@ class AgenticSearch:
             if self.settings.enable_thinking
             else {"enable_thinking": False}
         )
-        # Render prompt templates with project name
-        self._decompose_prompt = DECOMPOSE_PROMPT_TEMPLATE.format(
-            project_name=self.settings.project_name,
-        )
-        self._evaluate_prompt = EVALUATE_PROMPT_TEMPLATE.format(
-            project_name=self.settings.project_name,
-        )
-        self._synthesize_prompt = SYNTHESIZE_PROMPT_TEMPLATE.format(
-            project_name=self.settings.project_name,
-        )
+        # Render prompt templates with project name (use str.replace to avoid
+        # interpreting JSON example braces as format fields)
+        _pn = self.settings.project_name
+        self._decompose_prompt = DECOMPOSE_PROMPT_TEMPLATE.replace("{project_name}", _pn)
+        self._evaluate_prompt = EVALUATE_PROMPT_TEMPLATE.replace("{project_name}", _pn)
+        self._synthesize_prompt = SYNTHESIZE_PROMPT_TEMPLATE.replace("{project_name}", _pn)
 
     async def search(
         self,
@@ -218,7 +214,7 @@ class AgenticSearch:
         resp = await self.client.chat.completions.create(
             model=self.light_model,
             messages=[
-                {"role": "user", "content": self._decompose_prompt.format(question=question)},
+                {"role": "user", "content": self._decompose_prompt.replace("{question}", question)},
             ],
             temperature=0.1,
             max_tokens=512,
@@ -237,10 +233,10 @@ class AgenticSearch:
             messages=[
                 {
                     "role": "user",
-                    "content": EVALUATE_PROMPT_TEMPLATE.format(
-                        project_name=self.settings.project_name,
-                    ).format(
-                        question=question, context=context
+                    "content": self._evaluate_prompt.replace(
+                        "{question}", question
+                    ).replace(
+                        "{context}", context
                     ),
                 },
             ],
@@ -261,8 +257,10 @@ class AgenticSearch:
             messages=[
                 {
                     "role": "user",
-                    "content": self._synthesize_prompt.format(
-                        question=question, context=context
+                    "content": self._synthesize_prompt.replace(
+                        "{question}", question
+                    ).replace(
+                        "{context}", context
                     ),
                 },
             ],
