@@ -1,7 +1,8 @@
 """
 Embedding service using Alibaba Cloud DashScope text-embedding-v4.
 """
-from openai import AsyncOpenAI
+from openai import AsyncOpenAI, BadRequestError
+from openai.types import CreateEmbeddingResponse
 from src.config import get_settings
 
 
@@ -35,7 +36,13 @@ class Embedder:
             all_embeddings.extend(batch_embeddings)
         return all_embeddings
 
-    async def _create_embedding(self, input_data):
+    async def _create_embedding(self, input_data: str | list[str]) -> CreateEmbeddingResponse:
+        """
+        Create embedding with provider compatibility fallback.
+
+        Try a full request first (`dimensions` + `encoding_format`), then retry
+        with reduced optional parameters if the provider rejects them.
+        """
         request_variants = [
             {"model": self.model, "input": input_data, "dimensions": self.dimensions, "encoding_format": "float"},
             {"model": self.model, "input": input_data, "encoding_format": "float"},
@@ -43,14 +50,34 @@ class Embedder:
             {"model": self.model, "input": input_data},
         ]
 
-        last_error = None
+        last_error: Exception | None = None
         for params in request_variants:
             try:
                 return await self.client.embeddings.create(**params)
-            except Exception as e:
+            except BadRequestError as e:
                 last_error = e
-                msg = str(e).lower()
-                if not any(k in msg for k in ("parameter", "unsupported", "unknown", "invalid")):
+                body = e.body if isinstance(e.body, dict) else {}
+                err = body.get("error", {}) if isinstance(body.get("error"), dict) else {}
+                error_param = err.get("param", "")
+                error_code = err.get("code", "")
+                error_type = err.get("type", "")
+                error_msg = err.get("message") or str(e)
+
+                error_param = error_param.lower() if isinstance(error_param, str) else ""
+                error_code = error_code.lower() if isinstance(error_code, str) else ""
+                error_type = error_type.lower() if isinstance(error_type, str) else ""
+                error_msg = error_msg.lower() if isinstance(error_msg, str) else ""
+
+                is_compat_param_error = (
+                    error_param in {"dimensions", "encoding_format"}
+                    or error_code in {"invalid_parameter", "unknown_parameter"}
+                    or error_type in {"invalid_parameter", "unknown_parameter"}
+                    or "dimensions" in error_msg
+                    or "encoding_format" in error_msg
+                )
+                if not is_compat_param_error:
                     raise
 
+        if last_error is None:
+            raise RuntimeError("Embedding request failed before response was received.")
         raise last_error
