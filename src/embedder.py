@@ -23,6 +23,7 @@ class Embedder:
             model=self.model,
             input=text,
             dimensions=self.dimensions,
+            encoding_format="float",
         )
         return resp.data[0].embedding
 
@@ -38,6 +39,7 @@ class Embedder:
                 model=self.model,
                 input=batch,
                 dimensions=self.dimensions,
+                encoding_format="float",
             )
             batch_embeddings = [d.embedding for d in resp.data]
             all_embeddings.extend(batch_embeddings)
