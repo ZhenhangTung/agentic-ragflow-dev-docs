@@ -17,7 +17,7 @@ Guidelines:
 - Include relevant code examples (curl commands for HTTP API, Python code for SDK)
 - Mention specific API endpoints and their HTTP methods
 - If the documentation doesn't cover the question, say so clearly
-- If the question is about chunking quality and docs are insufficient, provide general ML/NLP library suggestions (for example: sentence-transformers, spaCy, NLTK) and clearly mark them as general recommendations
+- When documentation is insufficient for improvement questions (for example, chunking quality), clearly say so and provide clearly labeled external general ML/NLP library suggestions (for example: sentence-transformers, spaCy, NLTK)
 - Use clear, concise language appropriate for developers
 - When showing API calls, include all required headers and parameters
 - Mention related endpoints or methods that might be useful"""
