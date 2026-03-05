@@ -80,7 +80,7 @@ async def run_indexing_pipeline(force_download: bool = False, force_reindex: boo
         # Embed in batches
         task = progress.add_task("Embedding chunks...", total=len(texts))
         embeddings = []
-        batch_size = 20
+        batch_size = Embedder.MAX_BATCH_SIZE
         for i in range(0, len(texts), batch_size):
             batch = texts[i : i + batch_size]
             batch_embeddings = await embedder.embed_batch(batch, batch_size=batch_size)

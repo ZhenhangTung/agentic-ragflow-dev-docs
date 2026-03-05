@@ -9,6 +9,8 @@ from src.config import get_settings
 class Embedder:
     """Generate embeddings using Qwen text-embedding-v4 via DashScope."""
 
+    MAX_BATCH_SIZE = 10
+
     def __init__(self):
         self.settings = get_settings()
         self.client = AsyncOpenAI(
@@ -23,14 +25,15 @@ class Embedder:
         resp = await self._create_embedding(input_data=text)
         return resp.data[0].embedding
 
-    async def embed_batch(self, texts: list[str], batch_size: int = 20) -> list[list[float]]:
+    async def embed_batch(self, texts: list[str], batch_size: int = MAX_BATCH_SIZE) -> list[list[float]]:
         """
         Generate embeddings for multiple texts in batches.
-        DashScope supports up to 25 texts per request for text-embedding-v4.
+        DashScope supports up to 10 texts per request for this endpoint.
         """
+        effective_batch_size = max(1, min(batch_size, self.MAX_BATCH_SIZE))
         all_embeddings = []
-        for i in range(0, len(texts), batch_size):
-            batch = texts[i : i + batch_size]
+        for i in range(0, len(texts), effective_batch_size):
+            batch = texts[i : i + effective_batch_size]
             resp = await self._create_embedding(input_data=batch)
             batch_embeddings = [d.embedding for d in resp.data]
             all_embeddings.extend(batch_embeddings)
