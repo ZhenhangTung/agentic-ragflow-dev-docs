@@ -52,8 +52,6 @@ async def download_docs(force: bool = False) -> list[str]:
 def _should_refresh(local_path: str, sync_hours: int, force: bool) -> bool:
     if force or not os.path.exists(local_path):
         return True
-    if sync_hours <= 0:
-        return True
 
     modified_at = datetime.fromtimestamp(os.path.getmtime(local_path), tz=timezone.utc)
     return datetime.now(timezone.utc) - modified_at >= timedelta(hours=sync_hours)
@@ -122,18 +120,19 @@ async def sync_github_issues(
         return local_path
 
     headers = {"Accept": "application/vnd.github+json"}
-    if settings.github_token:
-        headers["Authorization"] = f"Bearer {settings.github_token}"
+    token = settings.github_token.get_secret_value() if settings.github_token else ""
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
 
     api_url = f"https://api.github.com/repos/{settings.github_issues_owner}/{settings.github_issues_repo}/issues"
-    per_page = max(1, min(settings.github_issues_per_page, 100))
+    per_page = settings.github_issues_per_page
 
     issues: list[dict] = []
     console.print(
         f"  [cyan]Syncing GitHub issues from {settings.github_issues_owner}/{settings.github_issues_repo}...[/cyan]"
     )
     try:
-        for page in range(1, max(1, settings.github_issues_max_pages) + 1):
+        for page in range(1, settings.github_issues_max_pages + 1):
             resp = await client.get(
                 api_url,
                 params={
@@ -150,6 +149,7 @@ async def sync_github_issues(
             if not page_items:
                 break
 
+            # GitHub issues API also returns pull requests; keep true issues only.
             issues.extend(item for item in page_items if "pull_request" not in item)
             if len(page_items) < per_page:
                 break

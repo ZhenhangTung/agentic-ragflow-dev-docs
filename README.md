@@ -52,7 +52,9 @@ Downloaded from the `website/docs/references/` directory of [infiniflow/ragflow-
 - `glossary.mdx` — Glossary
 
 Optional additional source:
-- `github_issues_ragflow.md` — periodically refreshed snapshot of [infiniflow/ragflow issues](https://github.com/infiniflow/ragflow/issues) (status/content), which is also chunked and indexed for developer Q&A.
+- `github_issues_ragflow.md` — periodically refreshed snapshot of
+  [infiniflow/ragflow issues](https://github.com/infiniflow/ragflow/issues)
+  (status/content), which is also chunked and indexed for developer Q&A.
 
 ## Quick Start
 
