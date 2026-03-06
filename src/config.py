@@ -63,6 +63,18 @@ class Settings(BaseSettings):
         ],
         alias="DOC_FILES",
     )
+    github_issues_enabled: bool = Field(default=False, alias="GITHUB_ISSUES_ENABLED")
+    github_token: str = Field(default="", alias="GITHUB_TOKEN")
+    github_issues_owner: str = Field(default="infiniflow", alias="GITHUB_ISSUES_OWNER")
+    github_issues_repo: str = Field(default="ragflow", alias="GITHUB_ISSUES_REPO")
+    github_issues_state: str = Field(default="all", alias="GITHUB_ISSUES_STATE")
+    github_issues_filename: str = Field(
+        default="github_issues_ragflow.md",
+        alias="GITHUB_ISSUES_FILENAME",
+    )
+    github_issues_sync_hours: int = Field(default=24, alias="GITHUB_ISSUES_SYNC_HOURS")
+    github_issues_per_page: int = Field(default=100, alias="GITHUB_ISSUES_PER_PAGE")
+    github_issues_max_pages: int = Field(default=3, alias="GITHUB_ISSUES_MAX_PAGES")
 
     @property
     def postgres_dsn(self) -> str:
