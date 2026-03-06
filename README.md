@@ -51,6 +51,11 @@ Downloaded from the `website/docs/references/` directory of [infiniflow/ragflow-
 - `python_api_reference.md` — Complete Python SDK reference
 - `glossary.mdx` — Glossary
 
+Optional additional source:
+- `github_issues_ragflow.md` — periodically refreshed snapshot of
+  [infiniflow/ragflow issues](https://github.com/infiniflow/ragflow/issues)
+  (status/content), which is also chunked and indexed for developer Q&A.
+
 ## Quick Start
 
 ### Docker (Recommended)
@@ -130,6 +135,15 @@ POSTGRES_PORT=5432
 POSTGRES_USER=postgres
 POSTGRES_PASSWORD=your_password
 POSTGRES_DB=ragflow_docs
+
+# Optional: include GitHub issues in the index
+GITHUB_ISSUES_ENABLED=true
+GITHUB_ISSUES_OWNER=infiniflow
+GITHUB_ISSUES_REPO=ragflow
+GITHUB_ISSUES_STATE=all
+GITHUB_ISSUES_SYNC_HOURS=24
+# Optional (for higher API rate limit)
+GITHUB_TOKEN=ghp_xxx
 ```
 
 ### 4. Index Documents
